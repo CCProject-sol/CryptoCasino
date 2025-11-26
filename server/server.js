@@ -2,6 +2,9 @@ const express = require('express');
 const { WebSocketServer } = require('ws');
 const http = require('http');
 const dotenv = require('dotenv');
+const { v4: uuidv4 } = require('uuid');
+const MatchmakingManager = require('./matchmaking');
+const GameManager = require('./gameManager');
 
 dotenv.config();
 
@@ -17,17 +20,32 @@ const server = http.createServer(app);
 
 const wss = new WebSocketServer({ server });
 
+const gameManager = new GameManager();
+const matchmakingManager = new MatchmakingManager(gameManager);
+
 wss.on('connection', (ws) => {
-    console.log('New client connected');
+    ws.id = uuidv4();
+    console.log(`Client connected: ${ws.id}`);
 
     ws.on('message', (message) => {
-        console.log('Received:', message.toString());
-        // Echo back for now
-        ws.send(JSON.stringify({ type: 'echo', data: message.toString() }));
+        try {
+            const data = JSON.parse(message.toString());
+            console.log(`Received from ${ws.id}:`, data);
+
+            if (data.type === 'FIND_MATCH') {
+                matchmakingManager.findMatch(ws, data.gameType, data.betAmount, data.side);
+            } else if (data.type === 'CANCEL_MATCH') {
+                matchmakingManager.removeFromQueue(ws);
+                ws.send(JSON.stringify({ type: 'MATCH_CANCELLED' }));
+            }
+        } catch (e) {
+            console.error('Error parsing message:', e);
+        }
     });
 
     ws.on('close', () => {
-        console.log('Client disconnected');
+        console.log(`Client disconnected: ${ws.id}`);
+        matchmakingManager.removeFromQueue(ws);
     });
 });
 

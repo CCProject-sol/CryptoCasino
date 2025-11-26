@@ -1,71 +1,78 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Heart, Spade, Diamond, Club } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import useWebSocket from '../hooks/useWebSocket';
 
-const SUITS = [
-    { name: 'hearts', icon: Heart, color: '#ff4d4d' },
-    { name: 'diamonds', icon: Diamond, color: '#ff4d4d' },
-    { name: 'spades', icon: Spade, color: '#e0e0e0' },
-    { name: 'clubs', icon: Club, color: '#e0e0e0' }
-];
-
-const RANKS = [
-    { name: '2', value: 2 }, { name: '3', value: 3 }, { name: '4', value: 4 },
-    { name: '5', value: 5 }, { name: '6', value: 6 }, { name: '7', value: 7 },
-    { name: '8', value: 8 }, { name: '9', value: 9 }, { name: '10', value: 10 },
-    { name: 'J', value: 11 }, { name: 'Q', value: 12 }, { name: 'K', value: 13 },
-    { name: 'A', value: 14 }
-];
-
-const createDeck = () => {
-    const deck = [];
-    for (const suit of SUITS) {
-        for (const rank of RANKS) {
-            deck.push({
-                rank: rank.name,
-                value: rank.value,
-                suit: suit.name,
-                icon: suit.icon,
-                color: suit.color
-            });
-        }
-    }
-    return deck;
-};
-
-const shuffleDeck = (deck) => {
-    const newDeck = [...deck];
-    for (let i = newDeck.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [newDeck[i], newDeck[j]] = [newDeck[j], newDeck[i]];
-    }
-    return newDeck;
+const SUITS = {
+    hearts: { icon: Heart, color: '#ff4d4d' },
+    diamonds: { icon: Diamond, color: '#ff4d4d' },
+    spades: { icon: Spade, color: '#e0e0e0' },
+    clubs: { icon: Club, color: '#e0e0e0' }
 };
 
 const HighCard = () => {
     const [betAmount, setBetAmount] = useState('0.001');
     const [isPlaying, setIsPlaying] = useState(false);
+    const [isSearching, setIsSearching] = useState(false);
     const [playerCard, setPlayerCard] = useState(null);
     const [dealerCard, setDealerCard] = useState(null);
     const [result, setResult] = useState(null); // 'win', 'lose', 'draw'
     const [winAmount, setWinAmount] = useState(0);
     const [showResult, setShowResult] = useState(false);
+    const [statusMessage, setStatusMessage] = useState('');
+
+    const { isConnected, sendMessage, lastMessage } = useWebSocket('ws://localhost:3001');
+
+    useEffect(() => {
+        if (lastMessage) {
+            handleWebSocketMessage(lastMessage);
+        }
+    }, [lastMessage]);
+
+    const handleWebSocketMessage = (data) => {
+        switch (data.type) {
+            case 'SEARCHING_MATCH':
+                setIsSearching(true);
+                setStatusMessage('Searching for opponent...');
+                break;
+            case 'MATCH_FOUND':
+                setIsSearching(false);
+                setStatusMessage('Opponent found! Dealing cards...');
+                break;
+            case 'GAME_RESULT':
+                if (data.gameType === 'highcard') {
+                    performDeal(data.myCard, data.opponentCard, data.result, data.winAmount);
+                }
+                break;
+            case 'MATCH_CANCELLED':
+                setIsSearching(false);
+                setStatusMessage('');
+                break;
+            default:
+                break;
+        }
+    };
 
     const handlePlay = () => {
-        if (isPlaying) return;
+        if (isPlaying || isSearching || !isConnected) return;
 
+        sendMessage('FIND_MATCH', {
+            gameType: 'highcard',
+            betAmount: betAmount
+        });
+    };
+
+    const handleCancelMatch = () => {
+        sendMessage('CANCEL_MATCH');
+    };
+
+    const performDeal = (pCard, dCard, gameResult, amount) => {
         setIsPlaying(true);
         setShowResult(false);
         setPlayerCard(null);
         setDealerCard(null);
         setResult(null);
-
-        // Create and shuffle deck
-        const deck = shuffleDeck(createDeck());
-
-        // Draw cards
-        const pCard = deck.pop();
-        const dCard = deck.pop();
+        setStatusMessage('Dealing...');
 
         // Animation sequence
         setTimeout(() => {
@@ -75,20 +82,11 @@ const HighCard = () => {
                 setDealerCard(dCard);
 
                 setTimeout(() => {
-                    // Determine winner
-                    let outcome = 'draw';
-                    if (pCard.value > dCard.value) outcome = 'win';
-                    else if (pCard.value < dCard.value) outcome = 'lose';
-
-                    setResult(outcome);
-
-                    const amount = parseFloat(betAmount);
-                    if (outcome === 'win') setWinAmount(amount);
-                    else if (outcome === 'lose') setWinAmount(-amount);
-                    else setWinAmount(0);
-
+                    setResult(gameResult);
+                    setWinAmount(gameResult === 'win' ? amount : (gameResult === 'lose' ? -amount : 0));
                     setShowResult(true);
                     setIsPlaying(false);
+                    setStatusMessage('');
                 }, 1000);
             }, 1000);
         }, 500);
@@ -103,6 +101,19 @@ const HighCard = () => {
             <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center' }}>
                 <h1 style={{ fontSize: '42px', marginBottom: '16px' }}>High Card</h1>
                 <p style={{ color: 'var(--text-muted)', marginBottom: '40px' }}>Highest card wins. Ace is high.</p>
+
+                {/* Status Message */}
+                {statusMessage && (
+                    <div style={{
+                        marginBottom: '20px',
+                        padding: '10px',
+                        background: 'rgba(255,255,255,0.1)',
+                        borderRadius: '8px',
+                        color: 'var(--primary)'
+                    }}>
+                        {statusMessage}
+                    </div>
+                )}
 
                 {/* Game Area */}
                 <div style={{
@@ -138,6 +149,7 @@ const HighCard = () => {
                             type="number"
                             value={betAmount}
                             onChange={(e) => setBetAmount(e.target.value)}
+                            disabled={isSearching || isPlaying}
                             style={{
                                 background: 'rgba(0,0,0,0.2)',
                                 border: '1px solid rgba(255,255,255,0.1)',
@@ -152,14 +164,31 @@ const HighCard = () => {
                         />
                     </div>
 
-                    <button
-                        className="btn btn-primary"
-                        style={{ width: '100%', fontSize: '20px', justifyContent: 'center' }}
-                        onClick={handlePlay}
-                        disabled={isPlaying}
-                    >
-                        {isPlaying ? 'Dealing...' : 'DEAL CARDS'}
-                    </button>
+                    {!isSearching ? (
+                        <button
+                            className="btn btn-primary"
+                            style={{ width: '100%', fontSize: '20px', justifyContent: 'center' }}
+                            onClick={handlePlay}
+                            disabled={isPlaying || !isConnected}
+                        >
+                            {!isConnected ? 'Connecting...' : (isPlaying ? 'Dealing...' : 'FIND MATCH')}
+                        </button>
+                    ) : (
+                        <button
+                            className="btn"
+                            style={{
+                                width: '100%',
+                                fontSize: '20px',
+                                justifyContent: 'center',
+                                background: 'rgba(255, 77, 77, 0.2)',
+                                color: '#ff4d4d',
+                                border: '1px solid #ff4d4d'
+                            }}
+                            onClick={handleCancelMatch}
+                        >
+                            CANCEL SEARCH
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -234,7 +263,8 @@ const Card = ({ card, hidden }) => {
         );
     }
 
-    const Icon = card.icon;
+    const suitData = SUITS[card.suit];
+    const Icon = suitData.icon;
 
     return (
         <div style={{
@@ -242,7 +272,7 @@ const Card = ({ card, hidden }) => {
             height: '240px',
             background: 'white',
             borderRadius: '16px',
-            color: card.color,
+            color: suitData.color,
             position: 'relative',
             padding: '16px',
             boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
@@ -269,7 +299,8 @@ const Card = ({ card, hidden }) => {
 };
 
 const MiniCard = ({ card, label }) => {
-    const Icon = card.icon;
+    const suitData = SUITS[card.suit];
+    const Icon = suitData.icon;
     return (
         <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>{label}</div>
@@ -278,7 +309,7 @@ const MiniCard = ({ card, label }) => {
                 height: '84px',
                 background: 'white',
                 borderRadius: '8px',
-                color: card.color,
+                color: suitData.color,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',

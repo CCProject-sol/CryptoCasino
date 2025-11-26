@@ -1,61 +1,92 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import coinHeads from '../assets/coin-heads.png';
 import coinTails from '../assets/coin-tails.png';
+import useWebSocket from '../hooks/useWebSocket';
 
 const CoinFlip = () => {
     const [betAmount, setBetAmount] = useState('0.001');
     const [selectedSide, setSelectedSide] = useState(null);
     const [isFlipping, setIsFlipping] = useState(false);
+    const [isSearching, setIsSearching] = useState(false);
     const [rotation, setRotation] = useState(0);
     const [showModal, setShowModal] = useState(false);
     const [winAmount, setWinAmount] = useState(0);
     const [result, setResult] = useState(null);
+    const [statusMessage, setStatusMessage] = useState('');
 
-    const handleFlip = () => {
-        if (!selectedSide || isFlipping) return;
+    const { isConnected, sendMessage, lastMessage } = useWebSocket('ws://localhost:3001');
 
+    useEffect(() => {
+        if (lastMessage) {
+            handleWebSocketMessage(lastMessage);
+        }
+    }, [lastMessage]);
+
+    const handleWebSocketMessage = (data) => {
+        switch (data.type) {
+            case 'SEARCHING_MATCH':
+                setIsSearching(true);
+                setStatusMessage('Searching for opponent...');
+                break;
+            case 'MATCH_FOUND':
+                setIsSearching(false);
+                setStatusMessage('Opponent found! Game starting...');
+                break;
+            case 'GAME_RESULT':
+                if (data.gameType === 'coinflip') {
+                    performFlip(data.outcome, data.result, data.winAmount);
+                }
+                break;
+            case 'MATCH_CANCELLED':
+                setIsSearching(false);
+                setStatusMessage('');
+                break;
+            default:
+                break;
+        }
+    };
+
+    const handleFindMatch = () => {
+        if (!selectedSide || isSearching || isFlipping || !isConnected) return;
+
+        sendMessage('FIND_MATCH', {
+            gameType: 'coinflip',
+            betAmount: betAmount,
+            side: selectedSide
+        });
+    };
+
+    const handleCancelMatch = () => {
+        sendMessage('CANCEL_MATCH');
+    };
+
+    const performFlip = (outcome, gameResult, amount) => {
         setIsFlipping(true);
         setShowModal(false);
         setResult(null);
-
-        // Random outcome: 0 = heads, 1 = tails
-        const outcome = Math.random() < 0.5 ? 'heads' : 'tails';
-
-        // Calculate new rotation
-        // Add 5 full spins (1800deg) + outcome specific
-        // We keep adding to the current rotation to avoid snapping back
-        // Heads = multiple of 360, Tails = multiple of 360 + 180
+        setStatusMessage('Flipping...');
 
         const currentRotation = rotation;
         const spins = 1800; // 5 spins
         let targetRotation = currentRotation + spins;
-
-        // Normalize target to be consistent with outcome
-        // If outcome is heads, we want target % 360 === 0
-        // If outcome is tails, we want target % 360 === 180
-
         const remainder = targetRotation % 360;
 
         if (outcome === 'heads') {
             targetRotation += (360 - remainder);
         } else {
-            targetRotation += (180 - remainder) + 360; // Ensure we always move forward
+            targetRotation += (180 - remainder) + 360;
         }
 
         setRotation(targetRotation);
 
-        // Animation duration is 3s
         setTimeout(() => {
             setResult(outcome);
             setIsFlipping(false);
+            setWinAmount(gameResult === 'win' ? amount : -amount);
+            setStatusMessage('');
 
-            const isWin = selectedSide === outcome;
-            const amount = parseFloat(betAmount);
-            setWinAmount(isWin ? amount : -amount);
-
-            // Show modal slightly after animation ends
             setTimeout(() => {
                 setShowModal(true);
             }, 500);
@@ -70,6 +101,19 @@ const CoinFlip = () => {
 
             <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
                 <h1 style={{ fontSize: '42px', marginBottom: '40px' }}>Coin Flip</h1>
+
+                {/* Status Message */}
+                {statusMessage && (
+                    <div style={{
+                        marginBottom: '20px',
+                        padding: '10px',
+                        background: 'rgba(255,255,255,0.1)',
+                        borderRadius: '8px',
+                        color: 'var(--primary)'
+                    }}>
+                        {statusMessage}
+                    </div>
+                )}
 
                 {/* Coin Animation Container */}
                 <div style={{
@@ -123,6 +167,7 @@ const CoinFlip = () => {
                             type="number"
                             value={betAmount}
                             onChange={(e) => setBetAmount(e.target.value)}
+                            disabled={isSearching || isFlipping}
                             style={{
                                 background: 'rgba(0,0,0,0.2)',
                                 border: '1px solid rgba(255,255,255,0.1)',
@@ -140,6 +185,7 @@ const CoinFlip = () => {
                     <div style={{ display: 'flex', gap: '20px', marginBottom: '32px' }}>
                         <button
                             onClick={() => setSelectedSide('heads')}
+                            disabled={isSearching || isFlipping}
                             style={{
                                 flex: 1,
                                 padding: '20px',
@@ -149,13 +195,15 @@ const CoinFlip = () => {
                                 color: selectedSide === 'heads' ? '#ffd700' : 'var(--text-muted)',
                                 fontSize: '18px',
                                 fontWeight: 'bold',
-                                transition: 'all 0.2s'
+                                transition: 'all 0.2s',
+                                cursor: (isSearching || isFlipping) ? 'not-allowed' : 'pointer'
                             }}
                         >
                             HEADS
                         </button>
                         <button
                             onClick={() => setSelectedSide('tails')}
+                            disabled={isSearching || isFlipping}
                             style={{
                                 flex: 1,
                                 padding: '20px',
@@ -165,21 +213,39 @@ const CoinFlip = () => {
                                 color: selectedSide === 'tails' ? '#bd00ff' : 'var(--text-muted)',
                                 fontSize: '18px',
                                 fontWeight: 'bold',
-                                transition: 'all 0.2s'
+                                transition: 'all 0.2s',
+                                cursor: (isSearching || isFlipping) ? 'not-allowed' : 'pointer'
                             }}
                         >
                             TAILS
                         </button>
                     </div>
 
-                    <button
-                        className="btn btn-primary"
-                        style={{ width: '100%', fontSize: '20px', justifyContent: 'center' }}
-                        onClick={handleFlip}
-                        disabled={isFlipping || !selectedSide}
-                    >
-                        {isFlipping ? 'Flipping...' : 'FLIP COIN'}
-                    </button>
+                    {!isSearching ? (
+                        <button
+                            className="btn btn-primary"
+                            style={{ width: '100%', fontSize: '20px', justifyContent: 'center' }}
+                            onClick={handleFindMatch}
+                            disabled={isFlipping || !selectedSide || !isConnected}
+                        >
+                            {!isConnected ? 'Connecting...' : (isFlipping ? 'Flipping...' : 'FIND MATCH')}
+                        </button>
+                    ) : (
+                        <button
+                            className="btn"
+                            style={{
+                                width: '100%',
+                                fontSize: '20px',
+                                justifyContent: 'center',
+                                background: 'rgba(255, 77, 77, 0.2)',
+                                color: '#ff4d4d',
+                                border: '1px solid #ff4d4d'
+                            }}
+                            onClick={handleCancelMatch}
+                        >
+                            CANCEL SEARCH
+                        </button>
+                    )}
                 </div>
             </div>
 
