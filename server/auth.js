@@ -48,7 +48,60 @@ passport.use(new GoogleStrategy({
     }
 ));
 
-// ... (middleware and other routes remain unchanged)
+// Middleware to authenticate token
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) return res.sendStatus(401);
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.sendStatus(403);
+        req.user = user;
+        next();
+    });
+};
+
+// Register
+router.post('/register', async (req, res) => {
+    const { email, password } = req.body;
+    console.log(`[Register] Attempting registration for: ${email}`);
+
+    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Assign a unique deposit address index
+        const lastUser = db.prepare('SELECT deposit_address_index FROM users ORDER BY deposit_address_index DESC LIMIT 1').get();
+        const nextIndex = (lastUser ? lastUser.deposit_address_index : 0) + 1;
+
+        const info = db.prepare('INSERT INTO users (email, password_hash, deposit_address_index) VALUES (?, ?, ?)').run(email, hashedPassword, nextIndex);
+
+        console.log(`[Register] Success for user ID: ${info.lastInsertRowid}`);
+        const token = jwt.sign({ id: info.lastInsertRowid, email }, JWT_SECRET);
+        res.json({ token, user: { id: info.lastInsertRowid, email, balance: 0 } });
+    } catch (err) {
+        console.error(`[Register] Error:`, err);
+        if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+            return res.status(400).json({ error: 'Email already exists' });
+        }
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Login
+router.post('/login', async (req, res) => {
+    const { email, password } = req.body;
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+
+    if (!user || !user.password_hash || !await bcrypt.compare(password, user.password_hash)) {
+        return res.status(400).json({ error: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET);
+    res.json({ token, user: { id: user.id, email: user.email, balance: user.balance, wallet_address: user.wallet_address } });
+});
 
 // Google Auth Routes
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
