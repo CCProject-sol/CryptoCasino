@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api';
 
 export function Login({ onLogin }) {
@@ -17,7 +18,7 @@ export function Login({ onLogin }) {
                 api.setToken(res.token);
                 onLogin(res.user);
             }
-        } catch (err) {
+        } catch {
             setError('Login failed');
         }
     };
@@ -43,6 +44,9 @@ export function Login({ onLogin }) {
                 />
                 <button type="submit">Login</button>
             </form>
+            <p>
+                Don't have an account? <Link to="/register">Register here</Link>
+            </p>
         </div>
     );
 }

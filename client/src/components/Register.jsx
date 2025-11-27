@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api';
 
 export function Register({ onLogin }) {
@@ -17,7 +18,7 @@ export function Register({ onLogin }) {
                 api.setToken(res.token);
                 onLogin(res.user);
             }
-        } catch (err) {
+        } catch {
             setError('Registration failed');
         }
     };
@@ -43,6 +44,9 @@ export function Register({ onLogin }) {
                 />
                 <button type="submit">Register</button>
             </form>
+            <p>
+                Already have an account? <Link to="/login">Login here</Link>
+            </p>
         </div>
     );
 }
