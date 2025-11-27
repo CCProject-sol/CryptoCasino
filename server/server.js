@@ -16,6 +16,29 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok' });
 });
 
+// Middleware
+app.use(express.json());
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*'); // Allow all for now, restrict in prod
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+    }
+    next();
+});
+
+// Routes
+const { router: authRouter } = require('./auth');
+const withdrawalRouter = require('./withdraw');
+const { startDepositListener } = require('./wallet');
+
+app.use('/api/auth', authRouter);
+app.use('/api', withdrawalRouter);
+
+// Start background services
+startDepositListener();
+
 const server = http.createServer(app);
 
 const wss = new WebSocketServer({ server });
@@ -23,9 +46,28 @@ const wss = new WebSocketServer({ server });
 const gameManager = new GameManager();
 const matchmakingManager = new MatchmakingManager(gameManager);
 
-wss.on('connection', (ws) => {
-    ws.id = uuidv4();
-    console.log(`Client connected: ${ws.id}`);
+const jwt = require('jsonwebtoken');
+const JWT_SECRET = process.env.JWT_SECRET || 'secret';
+
+wss.on('connection', (ws, req) => {
+    // Parse Token from URL (e.g., ?token=...)
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const token = url.searchParams.get('token');
+
+    if (!token) {
+        ws.close(1008, 'Token required');
+        return;
+    }
+
+    try {
+        const user = jwt.verify(token, JWT_SECRET);
+        ws.user = user; // Attach user to WS
+        ws.id = uuidv4();
+        console.log(`Client connected: ${ws.id} (User: ${user.id})`);
+    } catch (err) {
+        ws.close(1008, 'Invalid token');
+        return;
+    }
 
     ws.on('message', (message) => {
         try {
