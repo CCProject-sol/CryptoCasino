@@ -28,6 +28,9 @@ app.use((req, res, next) => {
     next();
 });
 
+const passport = require('passport');
+app.use(passport.initialize());
+
 // Routes
 const { router: authRouter } = require('./auth');
 const withdrawalRouter = require('./withdraw');

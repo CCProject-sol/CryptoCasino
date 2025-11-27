@@ -3,10 +3,47 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const nacl = require('tweetnacl');
 const bs58 = require('bs58');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { db } = require('./db');
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
+
+// Passport Configuration
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID || 'PLACEHOLDER_CLIENT_ID',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'PLACEHOLDER_CLIENT_SECRET',
+    callbackURL: "http://localhost:3000/api/auth/google/callback"
+},
+    function (accessToken, refreshToken, profile, cb) {
+        try {
+            // Check if user exists by google_id
+            let user = db.prepare('SELECT * FROM users WHERE google_id = ?').get(profile.id);
+
+            if (!user) {
+                // Check if user exists by email
+                const email = profile.emails[0].value;
+                user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+
+                if (user) {
+                    // Link google_id to existing user
+                    db.prepare('UPDATE users SET google_id = ? WHERE id = ?').run(profile.id, user.id);
+                } else {
+                    // Create new user
+                    const lastUser = db.prepare('SELECT deposit_address_index FROM users ORDER BY deposit_address_index DESC LIMIT 1').get();
+                    const nextIndex = (lastUser ? lastUser.deposit_address_index : 0) + 1;
+
+                    const info = db.prepare('INSERT INTO users (email, google_id, deposit_address_index) VALUES (?, ?, ?)').run(email, profile.id, nextIndex);
+                    user = { id: info.lastInsertRowid, email, balance: 0 };
+                }
+            }
+            return cb(null, user);
+        } catch (err) {
+            return cb(err);
+        }
+    }
+));
 
 // Middleware to authenticate token
 const authenticateToken = (req, res, next) => {
@@ -25,22 +62,24 @@ const authenticateToken = (req, res, next) => {
 // Register
 router.post('/register', async (req, res) => {
     const { email, password } = req.body;
+    console.log(`[Register] Attempting registration for: ${email}`);
+
     if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
 
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Assign a unique deposit address index
-        // Simple strategy: incrementing index. 
-        // In a real app, we might want gaps or random indices, but sequential is fine for HD wallets.
         const lastUser = db.prepare('SELECT deposit_address_index FROM users ORDER BY deposit_address_index DESC LIMIT 1').get();
         const nextIndex = (lastUser ? lastUser.deposit_address_index : 0) + 1;
 
         const info = db.prepare('INSERT INTO users (email, password_hash, deposit_address_index) VALUES (?, ?, ?)').run(email, hashedPassword, nextIndex);
 
+        console.log(`[Register] Success for user ID: ${info.lastInsertRowid}`);
         const token = jwt.sign({ id: info.lastInsertRowid, email }, JWT_SECRET);
         res.json({ token, user: { id: info.lastInsertRowid, email, balance: 0 } });
     } catch (err) {
+        console.error(`[Register] Error:`, err);
         if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
             return res.status(400).json({ error: 'Email already exists' });
         }
@@ -53,13 +92,27 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
     const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
 
-    if (!user || !await bcrypt.compare(password, user.password_hash)) {
+    if (!user || !user.password_hash || !await bcrypt.compare(password, user.password_hash)) {
         return res.status(400).json({ error: 'Invalid credentials' });
     }
 
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET);
     res.json({ token, user: { id: user.id, email: user.email, balance: user.balance, wallet_address: user.wallet_address } });
 });
+
+// Google Auth Routes
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+router.get('/google/callback',
+    passport.authenticate('google', { session: false, failureRedirect: '/login' }),
+    function (req, res) {
+        // Successful authentication, redirect home with token.
+        const user = req.user;
+        const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET);
+        // Redirect to client with token
+        res.redirect(`http://localhost:5173/login?token=${token}`);
+    }
+);
 
 // Link Wallet
 router.post('/link-wallet', authenticateToken, (req, res) => {
