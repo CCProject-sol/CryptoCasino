@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../api';
+import { api, API_URL } from '../api';
 
 export function Register({ onLogin }) {
     const [email, setEmail] = useState('');
@@ -24,7 +24,7 @@ export function Register({ onLogin }) {
     };
 
     const handleGoogleLogin = () => {
-        window.location.href = 'http://localhost:3000/api/auth/google';
+        window.location.href = `${API_URL}/auth/google`;
     };
 
     return (

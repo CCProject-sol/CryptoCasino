@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { api } from '../api';
+import { api, API_URL } from '../api';
 
 export function Login({ onLogin }) {
     const [email, setEmail] = useState('');
@@ -42,7 +42,7 @@ export function Login({ onLogin }) {
     };
 
     const handleGoogleLogin = () => {
-        window.location.href = 'http://localhost:3000/api/auth/google';
+        window.location.href = `${API_URL}/auth/google`;
     };
 
     return (
