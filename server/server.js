@@ -96,4 +96,6 @@ wss.on('connection', (ws, req) => {
 
 server.listen(port, () => {
     console.log(`Server is running on port ${port}`);
+    console.log(`SERVER_URL: ${process.env.SERVER_URL || 'http://localhost:3000'}`);
+    console.log(`CLIENT_URL: ${process.env.CLIENT_URL || 'http://localhost:5173'}`);
 });
