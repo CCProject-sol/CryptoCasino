@@ -94,6 +94,12 @@ wss.on('connection', (ws, req) => {
     });
 });
 
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error('[Server] Unhandled Error:', err);
+    res.status(500).json({ error: 'Internal Server Error', details: err.message });
+});
+
 server.listen(port, () => {
     console.log(`Server is running on port ${port}`);
     console.log(`SERVER_URL: ${process.env.SERVER_URL || 'http://localhost:3000'}`);

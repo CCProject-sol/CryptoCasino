@@ -20,29 +20,43 @@ passport.use(new GoogleStrategy({
     callbackURL: `${SERVER_URL}/api/auth/google/callback`
 },
     function (accessToken, refreshToken, profile, cb) {
+        console.log('[GoogleOAuth] Callback received. Profile ID:', profile.id);
         try {
             // Check if user exists by google_id
             let user = db.prepare('SELECT * FROM users WHERE google_id = ?').get(profile.id);
 
             if (!user) {
+                console.log('[GoogleOAuth] User not found by google_id. Checking email...');
                 // Check if user exists by email
+                if (!profile.emails || !profile.emails[0]) {
+                    console.error('[GoogleOAuth] No email found in profile');
+                    return cb(new Error('No email found in Google profile'));
+                }
                 const email = profile.emails[0].value;
+                console.log('[GoogleOAuth] Checking email:', email);
+
                 user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
 
                 if (user) {
+                    console.log('[GoogleOAuth] User found by email. Linking google_id...');
                     // Link google_id to existing user
                     db.prepare('UPDATE users SET google_id = ? WHERE id = ?').run(profile.id, user.id);
                 } else {
+                    console.log('[GoogleOAuth] Creating new user...');
                     // Create new user
                     const lastUser = db.prepare('SELECT deposit_address_index FROM users ORDER BY deposit_address_index DESC LIMIT 1').get();
                     const nextIndex = (lastUser ? lastUser.deposit_address_index : 0) + 1;
 
                     const info = db.prepare('INSERT INTO users (email, google_id, deposit_address_index) VALUES (?, ?, ?)').run(email, profile.id, nextIndex);
                     user = { id: info.lastInsertRowid, email, balance: 0 };
+                    console.log('[GoogleOAuth] New user created with ID:', user.id);
                 }
+            } else {
+                console.log('[GoogleOAuth] User found by google_id:', user.id);
             }
             return cb(null, user);
         } catch (err) {
+            console.error('[GoogleOAuth] Error in strategy callback:', err);
             return cb(err);
         }
     }

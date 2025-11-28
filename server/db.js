@@ -26,8 +26,18 @@ const init = () => {
     // Migration: Add google_id if it doesn't exist (for existing DBs)
     try {
         db.prepare('ALTER TABLE users ADD COLUMN google_id TEXT UNIQUE').run();
+        console.log('[DB] Added google_id column to users table');
     } catch (err) {
         // Column likely already exists
+        console.log('[DB] google_id column likely already exists or error:', err.message);
+    }
+
+    // Verify schema
+    try {
+        const tableInfo = db.prepare('PRAGMA table_info(users)').all();
+        console.log('[DB] Users table schema:', tableInfo.map(c => c.name).join(', '));
+    } catch (err) {
+        console.error('[DB] Failed to get table info:', err);
     }
 
     // Transactions Table
