@@ -89,4 +89,6 @@ const init = () => {
     console.log('Database initialized successfully.');
 };
 
+init();
+
 module.exports = { db, init };
