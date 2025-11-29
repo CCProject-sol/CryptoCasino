@@ -121,7 +121,7 @@ router.post('/login', async (req, res) => {
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
 router.get('/google/callback',
-    passport.authenticate('google', { session: false, failureRedirect: '/login' }),
+    passport.authenticate('google', { session: false, failureRedirect: `${CLIENT_URL}/login?error=google_auth_failed` }),
     function (req, res) {
         // Successful authentication, redirect home with token.
         const user = req.user;
@@ -175,6 +175,33 @@ router.get('/me', authenticateToken, async (req, res) => {
     }
 
     res.json(user);
+});
+
+// Debug Route: Check DB Status
+router.get('/debug/db', (req, res) => {
+    try {
+        const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
+        const usersTable = tables.find(t => t.name === 'users');
+        let userCount = 0;
+        let tableInfo = [];
+
+        if (usersTable) {
+            userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
+            tableInfo = db.prepare('PRAGMA table_info(users)').all();
+        }
+
+        res.json({
+            status: 'ok',
+            tables: tables.map(t => t.name),
+            users: {
+                exists: !!usersTable,
+                count: userCount,
+                schema: tableInfo
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 module.exports = { router, authenticateToken };
