@@ -4,12 +4,9 @@ const { WebSocketServer } = require('ws');
 const http = require('http');
 const dotenv = require('dotenv');
 const { v4: uuidv4 } = require('uuid');
-const passport = require('passport');
-const jwt = require('jsonwebtoken');
 
 const MatchmakingManager = require('./matchmaking');
 const GameManager = require('./gameManager');
-const { router: authRouter } = require('./auth');
 const withdrawalRouter = require('./withdraw');
 const { startDepositListener } = require('./wallet');
 
@@ -17,7 +14,6 @@ dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3001;
-const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 
 // Basic health check
 app.get('/health', (req, res) => {
@@ -42,21 +38,13 @@ app.use((req, res, next) => {
     next();
 });
 
-// Passport
-app.use(passport.initialize());
-
 // Serve Static Files (React App)
-// This must come BEFORE API routes if we want to serve assets, 
-// but usually we want API routes to take precedence if there's a name collision.
-// However, for /api prefix, there is no collision.
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
 // API Routes
-app.use('/api/auth', authRouter);
 app.use('/api', withdrawalRouter);
 
 // SPA Fallback (Must be after API routes, before 404 handler)
-// Serves index.html for any non-API route that wasn't found in static files
 app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) {
         return next();
@@ -86,24 +74,9 @@ const gameManager = new GameManager();
 const matchmakingManager = new MatchmakingManager(gameManager);
 
 wss.on('connection', (ws, req) => {
-    // Parse Token from URL (e.g., ?token=...)
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    const token = url.searchParams.get('token');
-
-    if (!token) {
-        ws.close(1008, 'Token required');
-        return;
-    }
-
-    try {
-        const user = jwt.verify(token, JWT_SECRET);
-        ws.user = user; // Attach user to WS
-        ws.id = uuidv4();
-        console.log(`Client connected: ${ws.id} (User: ${user.id})`);
-    } catch (err) {
-        ws.close(1008, 'Invalid token');
-        return;
-    }
+    // No token verification for now, just assign a random ID
+    ws.id = uuidv4();
+    console.log(`Client connected: ${ws.id}`);
 
     ws.on('message', (message) => {
         try {

@@ -13,8 +13,6 @@ const init = () => {
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT UNIQUE,
-            password_hash TEXT, -- Nullable for Google users
-            google_id TEXT UNIQUE, -- New column for Google OAuth
             wallet_address TEXT UNIQUE,
             balance INTEGER DEFAULT 0, -- Stored in lamports (1 SOL = 1e9 lamports)
             deposit_address_index INTEGER UNIQUE,
@@ -22,15 +20,6 @@ const init = () => {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `).run();
-
-    // Migration: Add google_id if it doesn't exist (for existing DBs)
-    try {
-        db.prepare('ALTER TABLE users ADD COLUMN google_id TEXT UNIQUE').run();
-        console.log('[DB] Added google_id column to users table');
-    } catch (err) {
-        // Column likely already exists
-        console.log('[DB] google_id column likely already exists or error:', err.message);
-    }
 
     // Verify schema
     try {
