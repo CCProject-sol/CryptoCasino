@@ -28,6 +28,12 @@ app.use((req, res, next) => {
     next();
 });
 
+// Request Logging
+app.use((req, res, next) => {
+    console.log(`[Request] ${req.method} ${req.url}`);
+    next();
+});
+
 const passport = require('passport');
 app.use(passport.initialize());
 
@@ -92,6 +98,12 @@ wss.on('connection', (ws, req) => {
         console.log(`Client disconnected: ${ws.id}`);
         matchmakingManager.removeFromQueue(ws);
     });
+});
+
+// 404 Handler
+app.use((req, res, next) => {
+    console.log(`[404] Not Found: ${req.method} ${req.url}`);
+    res.status(404).json({ error: 'Not Found', path: req.url });
 });
 
 // Global Error Handler

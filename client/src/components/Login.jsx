@@ -42,7 +42,9 @@ export function Login({ onLogin }) {
     };
 
     const handleGoogleLogin = () => {
-        window.location.href = `${API_URL}/auth/google`;
+        const googleAuthUrl = `${API_URL}/auth/google`;
+        console.log('[Login] Redirecting to Google Auth:', googleAuthUrl);
+        window.location.href = googleAuthUrl;
     };
 
     return (
