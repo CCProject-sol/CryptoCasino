@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { Gamepad2, Trophy, User, Wallet, Menu, X } from 'lucide-react';
 
 const Navbar = () => {
-    const [isOpen, setIsOpen] = useState(false);
     const location = useLocation();
 
     const isActive = (path) => location.pathname === path;
@@ -13,6 +12,41 @@ const Navbar = () => {
         { name: 'Tournaments', path: '/tournaments', icon: Trophy },
         { name: 'Profile', path: '/profile', icon: User },
     ];
+
+    const connectWallet = async () => {
+        try {
+            if (!window.solana || !window.solana.isPhantom) {
+                alert('Phantom wallet is not installed!');
+                window.open('https://phantom.app/', '_blank');
+                return;
+            }
+
+            const response = await window.solana.connect();
+            const publicKey = response.publicKey.toString();
+
+            // Login with backend
+            const data = await import('../api').then(m => m.api.login(publicKey));
+
+            if (data.user) {
+                // Store user session (simplified for MVP)
+                localStorage.setItem('user', JSON.stringify(data.user));
+                // Reload to update state (or use context in a real app)
+                window.location.reload();
+            }
+        } catch (err) {
+            console.error('Wallet connection failed:', err);
+            alert('Failed to connect wallet: ' + err.message);
+        }
+    };
+
+    // Check for existing session
+    const [user, setUser] = useState(null);
+    React.useEffect(() => {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+            setUser(JSON.parse(storedUser));
+        }
+    }, []);
 
     return (
         <nav style={{
@@ -63,10 +97,27 @@ const Navbar = () => {
                 </div>
 
                 {/* Wallet Button */}
-                <button className="btn btn-primary">
-                    <Wallet size={18} />
-                    Connect Wallet
-                </button>
+                {user ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                        <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Balance</div>
+                            <div style={{ fontWeight: 'bold', color: 'var(--primary)' }}>
+                                {(user.balance / 1e9).toFixed(2)} SOL
+                            </div>
+                        </div>
+                        <button className="btn btn-outline" onClick={() => {
+                            localStorage.removeItem('user');
+                            window.location.reload();
+                        }}>
+                            {user.wallet_address.slice(0, 4)}...{user.wallet_address.slice(-4)}
+                        </button>
+                    </div>
+                ) : (
+                    <button className="btn btn-primary" onClick={connectWallet}>
+                        <Wallet size={18} />
+                        Connect Wallet
+                    </button>
+                )}
             </div>
         </nav>
     );

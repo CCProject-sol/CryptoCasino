@@ -6,6 +6,18 @@ export const api = {
             'Content-Type': 'application/json',
         };
 
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                if (user && user.id) {
+                    headers['x-user-id'] = user.id.toString();
+                }
+            } catch {
+                // Ignore invalid JSON
+            }
+        }
+
         const res = await fetch(`${API_URL}${endpoint}`, {
             method,
             headers,
@@ -17,6 +29,10 @@ export const api = {
 
     linkWallet(publicKey, signature) {
         return this.request('/auth/link-wallet', 'POST', { publicKey, signature });
+    },
+
+    login(publicKey) {
+        return this.request('/auth/login', 'POST', { publicKey });
     },
 
     withdraw(amount, address) {

@@ -42,6 +42,12 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
 // API Routes
+// API Routes
+const { router: authRouter } = require('./auth');
+const url = require('url');
+
+app.use('/api/auth', authRouter);
+app.use('/api', withdrawalRouter);
 app.use('/api', withdrawalRouter);
 
 // SPA Fallback (Must be after API routes, before 404 handler)
@@ -74,9 +80,17 @@ const gameManager = new GameManager();
 const matchmakingManager = new MatchmakingManager(gameManager);
 
 wss.on('connection', (ws, req) => {
-    // No token verification for now, just assign a random ID
-    ws.id = uuidv4();
-    console.log(`Client connected: ${ws.id}`);
+    const parameters = url.parse(req.url, true);
+    const userId = parameters.query.userId;
+
+    if (userId) {
+        ws.user = { id: parseInt(userId) };
+        ws.id = userId; // Use user ID as connection ID
+        console.log(`Client connected: ${ws.id} (Authenticated)`);
+    } else {
+        ws.id = uuidv4();
+        console.log(`Client connected: ${ws.id} (Guest)`);
+    }
 
     ws.on('message', (message) => {
         try {
@@ -99,6 +113,7 @@ wss.on('connection', (ws, req) => {
         matchmakingManager.removeFromQueue(ws);
     });
 });
+
 
 server.listen(port, () => {
     console.log(`Server is running on port ${port}`);
