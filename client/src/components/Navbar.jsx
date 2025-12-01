@@ -15,6 +15,7 @@ const Navbar = () => {
     const navLinks = [
         { name: 'Games', path: '/games', icon: Gamepad2 },
         { name: 'Tournaments', path: '/tournaments', icon: Trophy },
+        { name: 'Profile', path: '/profile', icon: User },
     ];
 
 
@@ -22,6 +23,34 @@ const Navbar = () => {
         logout();
         setIsDropdownOpen(false);
         window.location.href = '/';
+    };
+
+    const handleLinkWallet = async () => {
+        try {
+            if (!window.solana || !window.solana.isPhantom) {
+                alert('Phantom wallet is not installed!');
+                window.open('https://phantom.app/', '_blank');
+                return;
+            }
+
+            const response = await window.solana.connect();
+            const publicKey = response.publicKey.toString();
+
+            // Sign message for verification
+            const message = `Link wallet ${publicKey} to user ${user.id}`;
+            const encodedMessage = new TextEncoder().encode(message);
+            await window.solana.signMessage(encodedMessage, 'utf8');
+
+            // Call API to link wallet
+            const { api } = await import('../api'); // Dynamic import to avoid circular dependency if any
+            await api.linkWallet(publicKey);
+
+            alert('Wallet linked successfully!');
+            setIsDropdownOpen(false);
+        } catch (err) {
+            console.error('Link wallet failed:', err);
+            alert('Failed to link wallet: ' + (err.response?.data?.error || err.message));
+        }
     };
 
     return (
@@ -132,6 +161,31 @@ const Navbar = () => {
                                             <User size={16} />
                                             Profile
                                         </Link>
+
+                                        {!user.wallet_address && (
+                                            <button
+                                                onClick={handleLinkWallet}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '10px',
+                                                    padding: '12px',
+                                                    color: 'var(--primary)',
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    width: '100%',
+                                                    cursor: 'pointer',
+                                                    borderRadius: '8px',
+                                                    textAlign: 'left'
+                                                }}
+                                                onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                                                onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                                            >
+                                                <Wallet size={16} />
+                                                Connect Wallet
+                                            </button>
+                                        )}
+
                                         <button
                                             onClick={handleLogout}
                                             style={{
@@ -151,7 +205,7 @@ const Navbar = () => {
                                             onMouseOut={e => e.currentTarget.style.background = 'transparent'}
                                         >
                                             <LogOut size={16} />
-                                            Disconnect
+                                            Log Out
                                         </button>
                                     </div>
                                 )}
