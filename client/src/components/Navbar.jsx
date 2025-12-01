@@ -6,7 +6,7 @@ import { useUser } from '../context/UserContext';
 
 const Navbar = () => {
     const location = useLocation();
-    const { user, login, logout } = useUser();
+    const { user, logout } = useUser();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
