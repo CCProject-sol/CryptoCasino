@@ -1,4 +1,4 @@
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3005/api';
 
 export const api = {
     async request(endpoint, method = 'GET', body = null) {
@@ -27,12 +27,37 @@ export const api = {
         return res.json();
     },
 
-    linkWallet(publicKey, signature) {
-        return this.request('/auth/link-wallet', 'POST', { publicKey, signature });
-    },
 
     login(publicKey) {
         return this.request('/auth/login', 'POST', { publicKey });
+    },
+
+    register(email, password) {
+        return this.request('/auth/register', 'POST', { email, password });
+    },
+
+    loginEmail(email, password) {
+        return this.request('/auth/login-email', 'POST', { email, password });
+    },
+
+    linkWallet(publicKey) {
+        return this.request('/auth/link-wallet', 'POST', { publicKey });
+    },
+
+    unlinkWallet(publicKey) {
+        return this.request('/auth/unlink-wallet', 'POST', { publicKey });
+    },
+
+    setPrimaryWallet(publicKey) {
+        return this.request('/auth/set-primary-wallet', 'POST', { publicKey });
+    },
+
+    getProfile() {
+        return this.request('/user/profile');
+    },
+
+    updateNickname(nickname) {
+        return this.request('/user/nickname', 'POST', { nickname });
     },
 
     withdraw(amount, address) {

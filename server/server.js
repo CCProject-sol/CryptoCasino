@@ -9,11 +9,12 @@ const MatchmakingManager = require('./matchmaking');
 const GameManager = require('./gameManager');
 const withdrawalRouter = require('./withdraw');
 const { startDepositListener } = require('./wallet');
+const { db } = require('./db');
 
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3001;
+const port = 3005; // process.env.PORT || 3002;
 
 // Basic health check
 app.get('/health', (req, res) => {
@@ -44,9 +45,11 @@ app.use(express.static(path.join(__dirname, '../client/dist')));
 // API Routes
 // API Routes
 const { router: authRouter } = require('./auth');
+const userRouter = require('./user');
 const url = require('url');
 
 app.use('/api/auth', authRouter);
+app.use('/api/user', userRouter);
 app.use('/api', withdrawalRouter);
 app.use('/api', withdrawalRouter);
 
@@ -114,6 +117,23 @@ wss.on('connection', (ws, req) => {
     });
 });
 
+// Helper to broadcast user updates
+const broadcastUserUpdate = (userId) => {
+    const user = db.prepare('SELECT id, email, wallet_address, nickname, balance FROM users WHERE id = ?').get(userId);
+    if (!user) return;
+
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN && client.user && client.user.id === userId) {
+            client.send(JSON.stringify({
+                type: 'USER_UPDATE',
+                user
+            }));
+        }
+    });
+};
+
+// Make broadcast available to routes (hacky but works for MVP)
+app.set('broadcastUserUpdate', broadcastUserUpdate);
 
 server.listen(port, () => {
     console.log(`Server is running on port ${port}`);
