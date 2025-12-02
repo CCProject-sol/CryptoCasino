@@ -8,11 +8,11 @@ router.get('/profile', authenticateToken, (req, res) => {
     const userId = req.user.id;
 
     try {
-        const user = db.prepare('SELECT id, email, wallet_address, nickname, balance, deposit_address_index, created_at FROM users WHERE id = ?').get(userId);
+        const user = db.prepare('SELECT id, email, wallet_address, nickname, balance, avatar_url, deposit_address_index, created_at FROM users WHERE id = ?').get(userId);
         const linkedWallets = db.prepare('SELECT wallet_address, is_primary, added_at FROM linked_wallets WHERE user_id = ? ORDER BY added_at ASC').all(userId);
 
-        // Get recent transactions (optional, limit 10)
-        const recentTransactions = db.prepare('SELECT type, amount, status, created_at FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 10').all(userId);
+        // Get recent transactions
+        const recentTransactions = db.prepare('SELECT type, amount, status, created_at, tx_hash FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 50').all(userId);
 
         res.json({
             user,
@@ -47,6 +47,29 @@ router.post('/nickname', authenticateToken, (req, res) => {
             return res.status(409).json({ error: 'Nickname already taken' });
         }
         console.error('[User] Update nickname error:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Update Avatar
+router.post('/avatar', authenticateToken, (req, res) => {
+    const { avatarUrl } = req.body;
+    const userId = req.user.id;
+
+    if (!avatarUrl || avatarUrl.length > 500) {
+        return res.status(400).json({ error: 'Invalid avatar URL' });
+    }
+
+    try {
+        db.prepare('UPDATE users SET avatar_url = ? WHERE id = ?').run(avatarUrl, userId);
+
+        // Broadcast update
+        const broadcast = req.app.get('broadcastUserUpdate');
+        if (broadcast) broadcast(userId);
+
+        res.json({ success: true, avatarUrl });
+    } catch (err) {
+        console.error('[User] Update avatar error:', err);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

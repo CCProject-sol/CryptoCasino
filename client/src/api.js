@@ -60,6 +60,10 @@ export const api = {
         return this.request('/user/nickname', 'POST', { nickname });
     },
 
+    updateAvatar(avatarUrl) {
+        return this.request('/user/avatar', 'POST', { avatarUrl });
+    },
+
     withdraw(amount, address) {
         return this.request('/withdraw', 'POST', { amount, address });
     }

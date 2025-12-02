@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
-import { User, Wallet, Shield, Plus, Trash2, Star, CheckCircle, AlertCircle } from 'lucide-react';
+import { User, Wallet, Shield, Plus, Trash2, Star, CheckCircle, AlertCircle, History, ArrowUpRight, ArrowDownLeft, Trophy, Gamepad2 } from 'lucide-react';
 
 const Profile = () => {
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [nickname, setNickname] = useState('');
     const [isEditingNickname, setIsEditingNickname] = useState(false);
+    const [avatarUrl, setAvatarUrl] = useState('');
+    const [isEditingAvatar, setIsEditingAvatar] = useState(false);
     const [activeTab, setActiveTab] = useState('overview');
     const [notification, setNotification] = useState(null); // { type: 'success' | 'error', message: string }
 
@@ -15,6 +17,7 @@ const Profile = () => {
             const data = await api.getProfile();
             setProfile(data);
             setNickname(data.user.nickname || '');
+            setAvatarUrl(data.user.avatar_url || '');
         } catch (err) {
             console.error('Failed to fetch profile:', err);
             showNotification('error', 'Failed to fetch profile');
@@ -43,6 +46,17 @@ const Profile = () => {
         }
     };
 
+    const handleUpdateAvatar = async () => {
+        try {
+            await api.updateAvatar(avatarUrl);
+            setIsEditingAvatar(false);
+            fetchProfile();
+            showNotification('success', 'Avatar updated successfully');
+        } catch (err) {
+            showNotification('error', 'Failed to update avatar: ' + (err.message || 'Unknown error'));
+        }
+    };
+
     const handleLinkWallet = async () => {
         try {
             if (!window.solana || !window.solana.isPhantom) {
@@ -50,10 +64,6 @@ const Profile = () => {
                 window.open('https://phantom.app/', '_blank');
                 return;
             }
-
-            // Force disconnect to allow selecting a different wallet if needed
-            // await window.solana.disconnect(); 
-            // Note: Phantom behavior varies, sometimes disconnect() is needed to switch accounts
 
             alert('Please switch to the new wallet in your Phantom extension if needed, then click OK to connect.');
 
@@ -126,71 +136,80 @@ const Profile = () => {
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '20px', marginBottom: '32px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                <button
-                    onClick={() => setActiveTab('overview')}
-                    style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: '12px 24px',
-                        color: activeTab === 'overview' ? 'var(--primary)' : 'var(--text-muted)',
-                        borderBottom: activeTab === 'overview' ? '2px solid var(--primary)' : '2px solid transparent',
-                        cursor: 'pointer',
-                        fontSize: '16px',
-                        fontWeight: '500',
-                        transition: 'all 0.3s'
-                    }}
-                >
-                    Overview
-                </button>
-                <button
-                    onClick={() => setActiveTab('wallets')}
-                    style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: '12px 24px',
-                        color: activeTab === 'wallets' ? 'var(--primary)' : 'var(--text-muted)',
-                        borderBottom: activeTab === 'wallets' ? '2px solid var(--primary)' : '2px solid transparent',
-                        cursor: 'pointer',
-                        fontSize: '16px',
-                        fontWeight: '500',
-                        transition: 'all 0.3s'
-                    }}
-                >
-                    Manage Wallets
-                </button>
+                {['overview', 'wallets', 'history'].map(tab => (
+                    <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: '12px 24px',
+                            color: activeTab === tab ? 'var(--primary)' : 'var(--text-muted)',
+                            borderBottom: activeTab === tab ? '2px solid var(--primary)' : '2px solid transparent',
+                            cursor: 'pointer',
+                            fontSize: '16px',
+                            fontWeight: '500',
+                            transition: 'all 0.3s',
+                            textTransform: 'capitalize'
+                        }}
+                    >
+                        {tab === 'wallets' ? 'Manage Wallets' : tab === 'history' ? 'Transaction History' : tab}
+                    </button>
+                ))}
             </div>
 
             {/* Content */}
-            {activeTab === 'overview' ? (
+            {activeTab === 'overview' && (
                 <div className="card">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
-                        <div style={{
-                            width: '64px',
-                            height: '64px',
-                            background: 'var(--primary)',
-                            borderRadius: '50%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#000'
-                        }}>
-                            <User size={32} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '32px' }}>
+                        {/* Avatar */}
+                        <div style={{ position: 'relative' }}>
+                            <div style={{
+                                width: '100px',
+                                height: '100px',
+                                background: profile.user.avatar_url ? `url(${profile.user.avatar_url}) center/cover` : 'var(--primary)',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#000',
+                                border: '2px solid var(--primary)'
+                            }}>
+                                {!profile.user.avatar_url && <User size={48} />}
+                            </div>
+                            <button
+                                onClick={() => setIsEditingAvatar(!isEditingAvatar)}
+                                style={{
+                                    position: 'absolute',
+                                    bottom: '0',
+                                    right: '0',
+                                    background: 'var(--card-bg)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '50%',
+                                    width: '32px',
+                                    height: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    color: 'white'
+                                }}
+                            >
+                                <Plus size={16} />
+                            </button>
                         </div>
-                        <div>
+
+                        {/* Nickname & Info */}
+                        <div style={{ flex: 1 }}>
                             <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Nickname</div>
                             {isEditingNickname ? (
-                                <div style={{ display: 'flex', gap: '8px' }}>
+                                <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
                                     <input
                                         type="text"
                                         value={nickname}
                                         onChange={e => setNickname(e.target.value)}
-                                        style={{
-                                            background: 'rgba(0,0,0,0.2)',
-                                            border: '1px solid rgba(255,255,255,0.1)',
-                                            padding: '4px 8px',
-                                            borderRadius: '4px',
-                                            color: 'white'
-                                        }}
+                                        className="input"
+                                        style={{ padding: '4px 8px' }}
                                     />
                                     <button className="btn btn-primary" style={{ padding: '4px 12px' }} onClick={handleUpdateNickname}>Save</button>
                                 </div>
@@ -205,19 +224,33 @@ const Profile = () => {
                                     </button>
                                 </div>
                             )}
+
+                            {isEditingAvatar && (
+                                <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
+                                    <input
+                                        type="text"
+                                        placeholder="Avatar URL"
+                                        value={avatarUrl}
+                                        onChange={e => setAvatarUrl(e.target.value)}
+                                        className="input"
+                                        style={{ padding: '4px 8px', width: '100%' }}
+                                    />
+                                    <button className="btn btn-primary" style={{ padding: '4px 12px' }} onClick={handleUpdateAvatar}>Save</button>
+                                </div>
+                            )}
                         </div>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                         <div style={{ background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '12px' }}>
                             <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>Total Balance</div>
-                            <div style={{ fontSize: '20px', fontWeight: 'bold', color: 'var(--primary)' }}>
+                            <div style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--primary)' }}>
                                 {(profile.user.balance / 1e9).toFixed(4)} SOL
                             </div>
                         </div>
                         <div style={{ background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '12px' }}>
                             <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>User ID</div>
-                            <div style={{ fontSize: '20px', fontWeight: 'bold' }}>#{profile.user.id}</div>
+                            <div style={{ fontSize: '24px', fontWeight: 'bold' }}>#{profile.user.id}</div>
                         </div>
                         <div style={{ background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '12px' }}>
                             <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>Email</div>
@@ -229,7 +262,9 @@ const Profile = () => {
                         </div>
                     </div>
                 </div>
-            ) : (
+            )}
+
+            {activeTab === 'wallets' && (
                 <div className="card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                         <h2 style={{ fontSize: '20px', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -304,6 +339,70 @@ const Profile = () => {
                                             <Shield size={14} /> Active for Transactions
                                         </div>
                                     )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'history' && (
+                <div className="card">
+                    <h2 style={{ fontSize: '20px', margin: '0 0 24px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <History size={20} />
+                        Transaction History
+                    </h2>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {(!profile.recentTransactions || profile.recentTransactions.length === 0) && (
+                            <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>
+                                No transactions found.
+                            </div>
+                        )}
+                        {profile.recentTransactions?.map((tx, i) => (
+                            <div key={i} style={{
+                                background: 'rgba(0,0,0,0.2)',
+                                padding: '16px',
+                                borderRadius: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                    <div style={{
+                                        width: '40px',
+                                        height: '40px',
+                                        borderRadius: '50%',
+                                        background: tx.type === 'DEPOSIT' || tx.type === 'WIN' ? 'rgba(0, 255, 0, 0.1)' : 'rgba(255, 0, 0, 0.1)',
+                                        color: tx.type === 'DEPOSIT' || tx.type === 'WIN' ? '#00ff00' : '#ff0000',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}>
+                                        {tx.type === 'DEPOSIT' && <ArrowDownLeft size={20} />}
+                                        {tx.type === 'WITHDRAWAL' && <ArrowUpRight size={20} />}
+                                        {tx.type === 'WIN' && <Trophy size={20} />}
+                                        {tx.type === 'BET' && <Gamepad2 size={20} />}
+                                        {tx.type === 'REFUND' && <History size={20} />}
+                                    </div>
+                                    <div>
+                                        <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{tx.type}</div>
+                                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                            {new Date(tx.created_at).toLocaleString()}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                    <div style={{
+                                        fontWeight: 'bold',
+                                        fontSize: '16px',
+                                        color: tx.type === 'DEPOSIT' || tx.type === 'WIN' || tx.type === 'REFUND' ? '#00ff00' : '#ff0000'
+                                    }}>
+                                        {tx.type === 'DEPOSIT' || tx.type === 'WIN' || tx.type === 'REFUND' ? '+' : '-'}{(tx.amount / 1e9).toFixed(4)} SOL
+                                    </div>
+                                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                        {tx.status}
+                                    </div>
                                 </div>
                             </div>
                         ))}

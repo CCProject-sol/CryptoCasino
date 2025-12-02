@@ -73,13 +73,28 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Internal Server Error', details: err.message });
 });
 
+// Helper to broadcast user updates
+const broadcastUserUpdate = (userId) => {
+    const user = db.prepare('SELECT id, email, wallet_address, nickname, balance, avatar_url FROM users WHERE id = ?').get(userId);
+    if (!user) return;
+
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN && client.user && client.user.id === userId) {
+            client.send(JSON.stringify({
+                type: 'USER_UPDATE',
+                user
+            }));
+        }
+    });
+};
+
 // Start background services
-startDepositListener();
+startDepositListener(broadcastUserUpdate);
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-const gameManager = new GameManager();
+const gameManager = new GameManager(db, broadcastUserUpdate);
 const matchmakingManager = new MatchmakingManager(gameManager);
 
 wss.on('connection', (ws, req) => {
@@ -117,20 +132,6 @@ wss.on('connection', (ws, req) => {
     });
 });
 
-// Helper to broadcast user updates
-const broadcastUserUpdate = (userId) => {
-    const user = db.prepare('SELECT id, email, wallet_address, nickname, balance FROM users WHERE id = ?').get(userId);
-    if (!user) return;
-
-    wss.clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN && client.user && client.user.id === userId) {
-            client.send(JSON.stringify({
-                type: 'USER_UPDATE',
-                user
-            }));
-        }
-    });
-};
 
 // Make broadcast available to routes (hacky but works for MVP)
 app.set('broadcastUserUpdate', broadcastUserUpdate);

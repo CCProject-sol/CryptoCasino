@@ -69,6 +69,19 @@ const init = () => {
             }
         }
 
+        if (!columns.includes('avatar_url')) {
+            console.log('[DB] Migrating: Adding avatar_url column to users...');
+            try {
+                db.prepare('ALTER TABLE users ADD COLUMN avatar_url TEXT').run();
+            } catch (alterErr) {
+                if (alterErr.message.includes('duplicate column name')) {
+                    console.log('[DB] avatar_url column already exists (race condition handled).');
+                } else {
+                    throw alterErr;
+                }
+            }
+        }
+
         // Migrate existing users to linked_wallets
         const existingUsers = db.prepare('SELECT id, wallet_address FROM users').all();
         for (const user of existingUsers) {

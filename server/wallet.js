@@ -27,7 +27,7 @@ const getUserDepositAddress = async (index) => {
 };
 
 // Check for new deposits
-const checkDeposits = async () => {
+const checkDeposits = async (broadcastUserUpdate) => {
     console.log('Checking for deposits...');
 
     // Get all users with their deposit address indices
@@ -52,10 +52,6 @@ const checkDeposits = async () => {
                 if (!tx || !tx.meta || tx.meta.err) continue;
 
                 // Calculate amount received by this address
-                // We need to look at preBalances and postBalances or parsed instructions
-                // Simpler: check postTokenBalances if it were a token, but this is SOL.
-                // For SOL, we check the change in balance for the specific account index.
-
                 const accountIndex = tx.transaction.message.accountKeys.findIndex(k => k.pubkey.toString() === address);
                 if (accountIndex === -1) continue;
 
@@ -72,6 +68,11 @@ const checkDeposits = async () => {
                         db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(amountReceived, user.id);
                     });
                     updateTx();
+
+                    // Broadcast update
+                    if (broadcastUserUpdate) {
+                        broadcastUserUpdate(user.id);
+                    }
                 }
             }
         } catch (err) {
@@ -81,8 +82,8 @@ const checkDeposits = async () => {
 };
 
 // Start the deposit listener loop
-const startDepositListener = () => {
-    setInterval(checkDeposits, 30000); // Check every 30 seconds
+const startDepositListener = (broadcastUserUpdate) => {
+    setInterval(() => checkDeposits(broadcastUserUpdate), 30000); // Check every 30 seconds
 };
 
 module.exports = { getUserDepositAddress, startDepositListener, connection, getDerivedKeyPair };
