@@ -1,3 +1,39 @@
+require('dotenv').config();
+const express = require('express');
+const http = require('http');
+const { WebSocketServer } = require('ws');
+const cors = require('cors');
+const url = require('url');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+const WebSocket = require('ws');
+
+// Database and route imports
+const db = require('./db');
+const authRoutes = require('./auth');
+const userRoutes = require('./user');
+const GameManager = require('./gameManager');
+const MatchmakingManager = require('./matchmaking');
+const { startDepositListener } = require('./wallet');
+
+const app = express();
+const port = process.env.PORT || 3000;
+
+// Middleware
+app.use(cors({
+    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    credentials: true
+}));
+app.use(express.json({ limit: '10mb' }));
+
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Routes
+app.use('/auth', authRoutes);
+app.use('/user', userRoutes);
+
+// 404 Handler
 app.use((req, res, next) => {
     console.log(`[404] Not Found: ${req.method} ${req.url}`);
     res.status(404).json({ error: 'Not Found', path: req.url });
