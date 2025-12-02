@@ -224,4 +224,39 @@ router.post('/set-primary-wallet', authenticateToken, (req, res) => {
     }
 });
 
+// Change Password
+router.post('/change-password', authenticateToken, async (req, res) => {
+    const { oldPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    if (!oldPassword || !newPassword) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    if (newPassword.length < 6) {
+        return res.status(400).json({ error: 'New password must be at least 6 characters' });
+    }
+
+    try {
+        const user = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(userId);
+
+        if (!user || !user.password_hash) {
+            return res.status(400).json({ error: 'User has no password set (wallet login?)' });
+        }
+
+        const validPassword = await bcrypt.compare(oldPassword, user.password_hash);
+        if (!validPassword) {
+            return res.status(401).json({ error: 'Incorrect old password' });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashedPassword, userId);
+
+        res.json({ success: true, message: 'Password updated successfully' });
+    } catch (err) {
+        console.error('[Auth] Change password error:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 module.exports = { router, authenticateToken };

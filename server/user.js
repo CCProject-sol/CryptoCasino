@@ -51,7 +51,7 @@ router.post('/nickname', authenticateToken, (req, res) => {
     }
 });
 
-// Update Avatar
+// Update Avatar URL (Manual)
 router.post('/avatar', authenticateToken, (req, res) => {
     const { avatarUrl } = req.body;
     const userId = req.user.id;
@@ -72,6 +72,38 @@ router.post('/avatar', authenticateToken, (req, res) => {
         console.error('[User] Update avatar error:', err);
         res.status(500).json({ error: 'Internal server error' });
     }
+});
+
+// Upload Avatar File
+router.post('/upload-avatar', authenticateToken, (req, res) => {
+    const upload = req.app.get('upload');
+
+    upload.single('avatar')(req, res, (err) => {
+        if (err) {
+            return res.status(400).json({ error: err.message });
+        }
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        const userId = req.user.id;
+        // Construct public URL (assuming server is running on localhost:3001 or configured domain)
+        // In production, use an environment variable for the base URL
+        const avatarUrl = `http://localhost:3001/uploads/${req.file.filename}`;
+
+        try {
+            db.prepare('UPDATE users SET avatar_url = ? WHERE id = ?').run(avatarUrl, userId);
+
+            // Broadcast update
+            const broadcast = req.app.get('broadcastUserUpdate');
+            if (broadcast) broadcast(userId);
+
+            res.json({ success: true, avatarUrl });
+        } catch (dbErr) {
+            console.error('[User] Upload avatar DB error:', dbErr);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
 });
 
 module.exports = router;

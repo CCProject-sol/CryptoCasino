@@ -64,6 +64,27 @@ export const api = {
         return this.request('/user/avatar', 'POST', { avatarUrl });
     },
 
+    uploadAvatar(formData) {
+        // Custom request for multipart/form-data
+        const token = localStorage.getItem('token');
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        return fetch(`${API_URL}/user/upload-avatar`, {
+            method: 'POST',
+            headers: headers, // Do NOT set Content-Type, let browser set it with boundary
+            body: formData
+        }).then(async res => {
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Request failed');
+            return data;
+        });
+    },
+
+    changePassword(oldPassword, newPassword) {
+        return this.request('/auth/change-password', 'POST', { oldPassword, newPassword });
+    },
+
     withdraw(amount, address) {
         return this.request('/withdraw', 'POST', { amount, address });
     }
