@@ -25,33 +25,7 @@ const Navbar = () => {
         window.location.href = '/';
     };
 
-    const handleLinkWallet = async () => {
-        try {
-            if (!window.solana || !window.solana.isPhantom) {
-                alert('Phantom wallet is not installed!');
-                window.open('https://phantom.app/', '_blank');
-                return;
-            }
 
-            const response = await window.solana.connect();
-            const publicKey = response.publicKey.toString();
-
-            // Sign message for verification
-            const message = `Link wallet ${publicKey} to user ${user.id}`;
-            const encodedMessage = new TextEncoder().encode(message);
-            await window.solana.signMessage(encodedMessage, 'utf8');
-
-            // Call API to link wallet
-            const { api } = await import('../api'); // Dynamic import to avoid circular dependency if any
-            await api.linkWallet(publicKey);
-
-            alert('Wallet linked successfully!');
-            setIsDropdownOpen(false);
-        } catch (err) {
-            console.error('Link wallet failed:', err);
-            alert('Failed to link wallet: ' + (err.response?.data?.error || err.message));
-        }
-    };
 
     return (
         <>
@@ -121,11 +95,25 @@ const Navbar = () => {
                                 <button
                                     className="btn btn-outline"
                                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '6px 12px', borderRadius: '24px' }}
                                 >
-                                    <User size={16} />
-                                    {user.nickname || user.email || `${user.wallet_address?.slice(0, 4)}...${user.wallet_address?.slice(-4)}`}
-                                    <ChevronDown size={14} />
+                                    <div style={{
+                                        width: '32px',
+                                        height: '32px',
+                                        borderRadius: '50%',
+                                        background: user.avatar_url ? `url(${user.avatar_url}) center/cover` : 'var(--primary)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: '#000',
+                                        border: '2px solid rgba(255,255,255,0.1)'
+                                    }}>
+                                        {!user.avatar_url && <User size={18} />}
+                                    </div>
+                                    <span style={{ fontWeight: '500' }}>
+                                        {user.nickname || user.email?.split('@')[0] || 'User'}
+                                    </span>
+                                    <ChevronDown size={14} style={{ opacity: 0.7 }} />
                                 </button>
 
                                 {isDropdownOpen && (
@@ -137,9 +125,10 @@ const Navbar = () => {
                                         background: '#1a1b23',
                                         border: '1px solid rgba(255,255,255,0.1)',
                                         borderRadius: '12px',
-                                        width: '200px',
+                                        width: '220px',
                                         padding: '8px',
-                                        boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
+                                        boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                                        zIndex: 1000
                                     }}>
                                         <Link
                                             to="/profile"
@@ -162,29 +151,49 @@ const Navbar = () => {
                                             Profile
                                         </Link>
 
-                                        {!user.wallet_address && (
-                                            <button
-                                                onClick={handleLinkWallet}
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '10px',
-                                                    padding: '12px',
-                                                    color: 'var(--primary)',
-                                                    background: 'none',
-                                                    border: 'none',
-                                                    width: '100%',
-                                                    cursor: 'pointer',
-                                                    borderRadius: '8px',
-                                                    textAlign: 'left'
-                                                }}
-                                                onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                                                onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-                                            >
-                                                <Wallet size={16} />
-                                                Connect Wallet
-                                            </button>
-                                        )}
+                                        <Link
+                                            to="/profile?tab=wallets"
+                                            className="dropdown-item"
+                                            onClick={() => setIsDropdownOpen(false)}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '10px',
+                                                padding: '12px',
+                                                color: 'white',
+                                                textDecoration: 'none',
+                                                borderRadius: '8px',
+                                                transition: 'background 0.2s'
+                                            }}
+                                            onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                                            onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                                        >
+                                            <Wallet size={16} />
+                                            Wallet Manager
+                                        </Link>
+
+                                        <Link
+                                            to="/profile?tab=history"
+                                            className="dropdown-item"
+                                            onClick={() => setIsDropdownOpen(false)}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '10px',
+                                                padding: '12px',
+                                                color: 'white',
+                                                textDecoration: 'none',
+                                                borderRadius: '8px',
+                                                transition: 'background 0.2s'
+                                            }}
+                                            onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                                            onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                                        >
+                                            <Trophy size={16} />
+                                            History
+                                        </Link>
+
+                                        <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '8px 0' }}></div>
 
                                         <button
                                             onClick={handleLogout}
@@ -199,7 +208,8 @@ const Navbar = () => {
                                                 width: '100%',
                                                 cursor: 'pointer',
                                                 borderRadius: '8px',
-                                                textAlign: 'left'
+                                                textAlign: 'left',
+                                                fontSize: '14px'
                                             }}
                                             onMouseOver={e => e.currentTarget.style.background = 'rgba(255,77,77,0.1)'}
                                             onMouseOut={e => e.currentTarget.style.background = 'transparent'}

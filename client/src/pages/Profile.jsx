@@ -1,14 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { api } from '../api';
 import { User, Wallet, Shield, Plus, Trash2, Star, CheckCircle, AlertCircle, History, ArrowUpRight, ArrowDownLeft, Trophy, Gamepad2, Edit2 } from 'lucide-react';
 import EditProfileModal from '../components/EditProfileModal';
 
 const Profile = () => {
+    const location = useLocation();
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
     const [notification, setNotification] = useState(null); // { type: 'success' | 'error', message: string }
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const tab = params.get('tab');
+        if (tab && ['overview', 'wallets', 'history'].includes(tab)) {
+            setActiveTab(tab);
+        }
+    }, [location.search]);
 
     const showNotification = useCallback((type, message) => {
         setNotification({ type, message });
