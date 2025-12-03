@@ -29,7 +29,7 @@ export const UserProvider = ({ children }) => {
 
         // Connect to WS with user ID
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.hostname}:3005?userId=${user.id}`;
+        const wsUrl = `${protocol}//${window.location.hostname}:3000?userId=${user.id}`;
         const socket = new WebSocket(wsUrl);
 
         socket.onopen = () => {

@@ -9,6 +9,7 @@ const AuthModal = ({ isOpen, onClose }) => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
 
     if (!isOpen) return null;
@@ -16,6 +17,7 @@ const AuthModal = ({ isOpen, onClose }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        setSuccess('');
         setLoading(true);
 
         try {
@@ -27,14 +29,21 @@ const AuthModal = ({ isOpen, onClose }) => {
                     throw new Error('Password must be at least 6 characters');
                 }
                 await registerEmail(email, password);
+                setSuccess('Account created successfully!');
             } else {
                 await loginEmail(email, password);
+                setSuccess('Logged in successfully!');
             }
-            onClose();
-            // Reset form
-            setEmail('');
-            setPassword('');
-            setConfirmPassword('');
+
+            // Close after a short delay to show success message
+            setTimeout(() => {
+                onClose();
+                // Reset form
+                setEmail('');
+                setPassword('');
+                setConfirmPassword('');
+                setSuccess('');
+            }, 1500);
         } catch (err) {
             console.error('Auth error:', err);
             setError(err.message || (err.response?.data?.error) || 'Authentication failed');
@@ -149,6 +158,24 @@ const AuthModal = ({ isOpen, onClose }) => {
                     }}>
                         <AlertCircle size={16} />
                         {error}
+                    </div>
+                )}
+
+                {success && (
+                    <div style={{
+                        background: 'rgba(77, 255, 148, 0.1)',
+                        border: '1px solid rgba(77, 255, 148, 0.2)',
+                        color: '#4dff94',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        marginBottom: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontSize: '14px'
+                    }}>
+                        <AlertCircle size={16} />
+                        {success}
                     </div>
                 )}
 
