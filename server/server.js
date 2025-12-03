@@ -7,10 +7,12 @@ const url = require('url');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const WebSocket = require('ws');
+const multer = require('multer');
+const fs = require('fs');
 
 // Database and route imports
 const db = require('./db');
-const authRoutes = require('./auth');
+const { router: authRoutes } = require('./auth');
 const userRoutes = require('./user');
 const GameManager = require('./gameManager');
 const MatchmakingManager = require('./matchmaking');
@@ -26,8 +28,27 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir);
+}
+
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, uploadsDir)
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+        cb(null, uniqueSuffix + path.extname(file.originalname))
+    }
+})
+
+const upload = multer({ storage: storage })
+app.set('upload', upload);
+
 // Serve uploaded files
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads', express.static(uploadsDir));
 
 // Routes
 app.use('/auth', authRoutes);
