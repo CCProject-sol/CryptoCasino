@@ -1,4 +1,4 @@
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3005/api';
+export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export const api = {
     async request(endpoint, method = 'GET', body = null) {
