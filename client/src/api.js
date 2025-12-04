@@ -24,7 +24,13 @@ export const api = {
             body: body ? JSON.stringify(body) : null,
         });
 
-        return res.json();
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.error || 'Request failed');
+        }
+
+        return data;
     },
 
 
