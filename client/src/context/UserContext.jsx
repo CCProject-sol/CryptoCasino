@@ -5,44 +5,55 @@ const UserContext = createContext(null);
 
 export const UserProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [token, setToken] = useState(localStorage.getItem('token'));
     const [ws, setWs] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [wallets, setWallets] = useState([]);
 
-    // Initial load
+    // Initialize user from token on mount
     useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
-        }
-        setLoading(false);
-    }, []);
-
-    // WebSocket connection
-    useEffect(() => {
-        if (!user) {
-            if (ws) {
-                ws.close();
-                setWs(null);
+        const initUser = async () => {
+            if (token) {
+                try {
+                    const response = await api.request('/api/auth/me', 'GET', null, token);
+                    setUser(response.user);
+                    setWallets(response.user.wallets || []);
+                } catch (err) {
+                    console.error('Failed to load user:', err);
+                    // Token might be invalid, clear it
+                    localStorage.removeItem('token');
+                    setToken(null);
+                }
             }
-            return;
-        }
+            setLoading(false);
+        };
+        initUser();
+    }, [token]);
 
-        // Connect to WS with user ID
+    // WebSocket connection with userId
+    useEffect(() => {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.hostname}:3000?userId=${user.id}`;
+        const wsUrl = user
+            ? `${protocol}//${window.location.hostname}:3000?userId=${user.id}`
+            : `${protocol}//${window.location.hostname}:3000`;
+
         const socket = new WebSocket(wsUrl);
 
         socket.onopen = () => {
-            console.log('User WS Connected');
+            console.log('WS Connected', user ? `(User ${user.id})` : '(Guest)');
         };
 
         socket.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                if (data.type === 'USER_UPDATE') {
-                    console.log('Received user update:', data.user);
-                    setUser(prev => ({ ...prev, ...data.user }));
-                    localStorage.setItem('user', JSON.stringify(data.user));
+                console.log('WS Message:', data);
+
+                // Handle user updates (balance changes, etc.)
+                if (data.type === 'USER_UPDATE' && data.user) {
+                    setUser(prevUser => ({
+                        ...prevUser,
+                        ...data.user
+                    }));
                 }
             } catch (err) {
                 console.error('WS Message Error:', err);
@@ -50,7 +61,7 @@ export const UserProvider = ({ children }) => {
         };
 
         socket.onclose = () => {
-            console.log('User WS Disconnected');
+            console.log('WS Disconnected');
         };
 
         setWs(socket);
@@ -58,43 +69,66 @@ export const UserProvider = ({ children }) => {
         return () => {
             socket.close();
         };
-    }, [user?.id]); // Re-connect if user ID changes (login/logout)
+    }, [user?.id]);
 
-    const login = async (publicKey) => {
-        const data = await api.login(publicKey);
-        if (data.user) {
-            setUser(data.user);
-            localStorage.setItem('user', JSON.stringify(data.user));
-        }
-        return data;
-    };
-
-    const logout = () => {
-        setUser(null);
-        localStorage.removeItem('user');
-        if (ws) ws.close();
+    // Auth methods
+    const loginEmail = async (email, password) => {
+        const response = await api.request('/api/auth/login', 'POST', { email, password });
+        setToken(response.token);
+        localStorage.setItem('token', response.token);
+        setUser(response.user);
+        setWallets(response.user.wallets || []);
+        return response;
     };
 
     const registerEmail = async (email, password) => {
-        const data = await api.register(email, password);
-        if (data.user) {
-            setUser(data.user);
-            localStorage.setItem('user', JSON.stringify(data.user));
-        }
-        return data;
+        const response = await api.request('/api/auth/register', 'POST', { email, password });
+        setToken(response.token);
+        localStorage.setItem('token', response.token);
+        setUser(response.user);
+        setWallets(response.user.wallets || []);
+        return response;
     };
 
-    const loginEmail = async (email, password) => {
-        const data = await api.loginEmail(email, password);
-        if (data.user) {
-            setUser(data.user);
-            localStorage.setItem('user', JSON.stringify(data.user));
-        }
-        return data;
+    const logout = () => {
+        setToken(null);
+        setUser(null);
+        setWallets([]);
+        localStorage.removeItem('token');
+    };
+
+    // Wallet methods
+    const connectWallet = async (address, signature, message) => {
+        const response = await api.request('/api/wallet/connect', 'POST', { address, signature, message }, token);
+        // Refresh user data to get updated wallets
+        const userResponse = await api.request('/api/auth/me', 'GET', null, token);
+        setUser(userResponse.user);
+        setWallets(userResponse.user.wallets || []);
+        return response;
+    };
+
+    const disconnectWallet = async (address) => {
+        const response = await api.request('/api/wallet/disconnect', 'POST', { address }, token);
+        // Refresh user data
+        const userResponse = await api.request('/api/auth/me', 'GET', null, token);
+        setUser(userResponse.user);
+        setWallets(userResponse.user.wallets || []);
+        return response;
     };
 
     return (
-        <UserContext.Provider value={{ user, login, logout, registerEmail, loginEmail, loading }}>
+        <UserContext.Provider value={{
+            user,
+            token,
+            ws,
+            loading,
+            wallets,
+            loginEmail,
+            registerEmail,
+            logout,
+            connectWallet,
+            disconnectWallet
+        }}>
             {children}
         </UserContext.Provider>
     );

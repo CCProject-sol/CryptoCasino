@@ -11,9 +11,8 @@ const multer = require('multer');
 const fs = require('fs');
 
 // Database and route imports
+// Database and route imports
 const db = require('./db');
-const { router: authRoutes } = require('./auth');
-const userRoutes = require('./user');
 const GameManager = require('./gameManager');
 const MatchmakingManager = require('./matchmaking');
 const { startDepositListener } = require('./wallet');
@@ -47,12 +46,21 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage })
 app.set('upload', upload);
 
-// Serve uploaded files
 app.use('/uploads', express.static(uploadsDir));
 
 // Routes
-app.use('/auth', authRoutes);
-app.use('/user', userRoutes);
+const authRouter = require('./routes/auth');
+app.use('/api/auth', authRouter);
+
+const walletRouter = require('./routes/wallet');
+app.use('/api/wallet', walletRouter);
+
+const withdrawRouter = require('./withdraw');
+app.use('/api/withdraw', withdrawRouter);
+
+const profileRouter = require('./routes/profile');
+app.use('/api/profile', profileRouter);
+
 
 // 404 Handler
 app.use((req, res, next) => {

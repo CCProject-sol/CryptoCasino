@@ -1,360 +1,334 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useUser } from '../context/UserContext';
 import { api } from '../api';
-import { User, Wallet, Shield, Plus, Trash2, Star, CheckCircle, AlertCircle, History, ArrowUpRight, ArrowDownLeft, Trophy, Gamepad2, Edit2 } from 'lucide-react';
-import EditProfileModal from '../components/EditProfileModal';
+import { User, Wallet, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
 const Profile = () => {
-    const location = useLocation();
-    const [profile, setProfile] = useState(null);
+    const { user, token, wallets } = useUser();
+    const [nickname, setNickname] = useState('');
+    const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('overview');
-    const [notification, setNotification] = useState(null); // { type: 'success' | 'error', message: string }
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [updating, setUpdating] = useState(false);
+    const [message, setMessage] = useState('');
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
 
     useEffect(() => {
-        const params = new URLSearchParams(location.search);
-        const tab = params.get('tab');
-        if (tab && ['overview', 'wallets', 'history'].includes(tab)) {
-            setActiveTab(tab);
+        if (user) {
+            setNickname(user.nickname || '');
+            loadTransactions();
         }
-    }, [location.search]);
+    }, [user, page]);
 
-    const showNotification = useCallback((type, message) => {
-        setNotification({ type, message });
-        setTimeout(() => setNotification(null), 3000);
-    }, []);
-
-    const fetchProfile = useCallback(async () => {
+    const loadTransactions = async () => {
         try {
-            const data = await api.getProfile();
-            setProfile(data);
+            const response = await api.request(`/api/profile/transactions?page=${page}&limit=10`, 'GET', null, token);
+            setTransactions(response.transactions);
+            setTotalPages(response.pagination.totalPages);
+            setLoading(false);
         } catch (err) {
-            console.error('Failed to fetch profile:', err);
-            showNotification('error', 'Failed to fetch profile');
-        } finally {
+            console.error('Failed to load transactions:', err);
             setLoading(false);
         }
-    }, [showNotification]);
+    };
 
-    useEffect(() => {
-        fetchProfile();
-    }, [fetchProfile]);
+    const handleUpdateProfile = async (e) => {
+        e.preventDefault();
+        setUpdating(true);
+        setMessage('');
 
-    const handleLinkWallet = async () => {
         try {
-            if (!window.solana || !window.solana.isPhantom) {
-                showNotification('error', 'Phantom wallet is not installed!');
-                window.open('https://phantom.app/', '_blank');
-                return;
-            }
-
-            alert('Please switch to the new wallet in your Phantom extension if needed, then click OK to connect.');
-
-            const response = await window.solana.connect();
-            const publicKey = response.publicKey.toString();
-
-            // Sign message for verification
-            const message = `Link wallet ${publicKey} to user ${profile.user.id}`;
-            const encodedMessage = new TextEncoder().encode(message);
-            await window.solana.signMessage(encodedMessage, 'utf8');
-
-            await api.linkWallet(publicKey);
-            fetchProfile();
-            showNotification('success', 'Wallet linked successfully');
+            await api.request('/api/profile/update', 'PATCH', { nickname }, token);
+            setMessage('Profile updated successfully!');
+            setTimeout(() => setMessage(''), 3000);
         } catch (err) {
-            console.error('Link wallet failed:', err);
-            showNotification('error', 'Failed to link wallet: ' + (err.response?.data?.error || err.message));
+            setMessage(err.message || 'Failed to update profile');
+        } finally {
+            setUpdating(false);
         }
     };
 
-    const handleUnlinkWallet = async (address) => {
-        if (!confirm('Are you sure you want to unlink this wallet?')) return;
-        try {
-            await api.unlinkWallet(address);
-            fetchProfile();
-            showNotification('success', 'Wallet unlinked successfully');
-        } catch (err) {
-            showNotification('error', 'Failed to unlink: ' + (err.message || 'Unknown error'));
+    const getStatusIcon = (status) => {
+        switch (status) {
+            case 'COMPLETED':
+                return <CheckCircle size={16} color="#4dff94" />;
+            case 'PENDING':
+                return <Clock size={16} color="#ffc107" />;
+            case 'FAILED':
+                return <XCircle size={16} color="#ff4d4d" />;
+            default:
+                return <AlertCircle size={16} color="#888" />;
         }
     };
 
-    const handleSetPrimary = async (address) => {
-        try {
-            await api.setPrimaryWallet(address);
-            fetchProfile();
-            showNotification('success', 'Primary wallet updated');
-        } catch (err) {
-            showNotification('error', 'Failed to set primary: ' + (err.message || 'Unknown error'));
+    const getTypeColor = (type) => {
+        switch (type) {
+            case 'DEPOSIT':
+                return '#4dff94';
+            case 'WITHDRAWAL':
+                return '#ff4d4d';
+            case 'WIN':
+                return '#00bfff';
+            case 'LOSS':
+                return '#ff8c00';
+            default:
+                return '#888';
         }
     };
 
-    if (loading) return <div className="container" style={{ paddingTop: '100px', textAlign: 'center' }}>Loading...</div>;
-    if (!profile) return <div className="container" style={{ paddingTop: '100px', textAlign: 'center' }}>Please connect your wallet.</div>;
+    if (!user) {
+        return (
+            <div className="container" style={{ padding: '40px 20px', textAlign: 'center' }}>
+                <h2>Please login to view your profile</h2>
+            </div>
+        );
+    }
 
     return (
-        <div className="container" style={{ paddingTop: '40px', paddingBottom: '80px' }}>
-            <h1 className="text-gradient" style={{ marginBottom: '40px' }}>Player Profile</h1>
+        <div className="container" style={{ padding: '40px 20px', maxWidth: '1200px' }}>
+            <h1 style={{ marginBottom: '32px' }}>Profile</h1>
 
-            {/* Notification Toast */}
-            {notification && (
-                <div style={{
-                    position: 'fixed',
-                    top: '20px',
-                    right: '20px',
-                    background: notification.type === 'success' ? 'rgba(0, 255, 0, 0.1)' : 'rgba(255, 0, 0, 0.1)',
-                    border: `1px solid ${notification.type === 'success' ? '#00ff00' : '#ff0000'}`,
-                    color: notification.type === 'success' ? '#00ff00' : '#ff0000',
-                    padding: '12px 24px',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    zIndex: 1000,
-                    backdropFilter: 'blur(10px)'
-                }}>
-                    {notification.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
-                    {notification.message}
-                </div>
-            )}
+            {/* Profile Info */}
+            <div style={{
+                background: '#1a1b23',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '16px',
+                padding: '24px',
+                marginBottom: '24px'
+            }}>
+                <h2 style={{ fontSize: '20px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <User size={24} />
+                    Profile Information
+                </h2>
 
-            {/* Edit Profile Modal */}
-            <EditProfileModal
-                isOpen={isEditModalOpen}
-                onClose={() => setIsEditModalOpen(false)}
-                profile={profile}
-                onUpdate={fetchProfile}
-            />
+                <form onSubmit={handleUpdateProfile}>
+                    <div style={{ marginBottom: '16px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>
+                            Email
+                        </label>
+                        <input
+                            type="text"
+                            value={user.email}
+                            disabled
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                background: 'rgba(255,255,255,0.03)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '8px',
+                                color: 'var(--text-muted)',
+                                cursor: 'not-allowed'
+                            }}
+                        />
+                    </div>
 
-            {/* Tabs */}
-            <div style={{ display: 'flex', gap: '20px', marginBottom: '32px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                {['overview', 'wallets', 'history'].map(tab => (
+                    <div style={{ marginBottom: '16px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>
+                            Nickname
+                        </label>
+                        <input
+                            type="text"
+                            value={nickname}
+                            onChange={(e) => setNickname(e.target.value)}
+                            placeholder="Enter nickname"
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '8px',
+                                color: 'white'
+                            }}
+                        />
+                    </div>
+
+                    <div style={{ marginBottom: '16px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>
+                            Balance
+                        </label>
+                        <div style={{
+                            padding: '12px',
+                            background: 'rgba(77, 255, 148, 0.1)',
+                            border: '1px solid rgba(77, 255, 148, 0.2)',
+                            borderRadius: '8px',
+                            fontSize: '18px',
+                            fontWeight: '600',
+                            color: '#4dff94'
+                        }}>
+                            {(user.balance / 1e9).toFixed(4)} SOL
+                        </div>
+                    </div>
+
+                    {message && (
+                        <div style={{
+                            padding: '12px',
+                            background: message.includes('success') ? 'rgba(77, 255, 148, 0.1)' : 'rgba(255, 77, 77, 0.1)',
+                            border: `1px solid ${message.includes('success') ? 'rgba(77, 255, 148, 0.2)' : 'rgba(255, 77, 77, 0.2)'}`,
+                            color: message.includes('success') ? '#4dff94' : '#ff4d4d',
+                            borderRadius: '8px',
+                            marginBottom: '16px',
+                            fontSize: '14px'
+                        }}>
+                            {message}
+                        </div>
+                    )}
+
                     <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            padding: '12px 24px',
-                            color: activeTab === tab ? 'var(--primary)' : 'var(--text-muted)',
-                            borderBottom: activeTab === tab ? '2px solid var(--primary)' : '2px solid transparent',
-                            cursor: 'pointer',
-                            fontSize: '16px',
-                            fontWeight: '500',
-                            transition: 'all 0.3s',
-                            textTransform: 'capitalize'
-                        }}
+                        type="submit"
+                        disabled={updating}
+                        className="btn btn-primary"
+                        style={{ opacity: updating ? 0.7 : 1 }}
                     >
-                        {tab === 'wallets' ? 'Manage Wallets' : tab === 'history' ? 'Transaction History' : tab}
+                        {updating ? 'Updating...' : 'Update Profile'}
                     </button>
-                ))}
+                </form>
             </div>
 
-            {/* Content */}
-            {activeTab === 'overview' && (
-                <div className="card">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '32px' }}>
-                        {/* Avatar */}
-                        <div style={{ position: 'relative' }}>
-                            <div style={{
-                                width: '100px',
-                                height: '100px',
-                                background: profile.user.avatar_url ? `url(${profile.user.avatar_url}) center/cover` : 'var(--primary)',
-                                borderRadius: '50%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: '#000',
-                                border: '2px solid var(--primary)'
-                            }}>
-                                {!profile.user.avatar_url && <User size={48} />}
-                            </div>
-                        </div>
+            {/* Wallets */}
+            <div style={{
+                background: '#1a1b23',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '16px',
+                padding: '24px',
+                marginBottom: '24px'
+            }}>
+                <h2 style={{ fontSize: '20px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Wallet size={24} />
+                    Linked Wallets
+                </h2>
 
-                        {/* Nickname & Info */}
-                        <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Nickname</div>
-                            <div style={{ fontSize: '24px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                {profile.user.nickname || 'Anonymous'}
-                            </div>
-                            <button
-                                className="btn btn-outline"
-                                style={{ marginTop: '12px', padding: '6px 12px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}
-                                onClick={() => setIsEditModalOpen(true)}
+                {wallets && wallets.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {wallets.map((wallet, index) => (
+                            <div
+                                key={index}
+                                style={{
+                                    padding: '16px',
+                                    background: 'rgba(255,255,255,0.05)',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    borderRadius: '8px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between'
+                                }}
                             >
-                                <Edit2 size={16} /> Edit Profile
-                            </button>
-                        </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                        <div style={{ background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '12px' }}>
-                            <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>Total Balance</div>
-                            <div style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--primary)' }}>
-                                {(profile.user.balance / 1e9).toFixed(4)} SOL
-                            </div>
-                        </div>
-                        <div style={{ background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '12px' }}>
-                            <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>User ID</div>
-                            <div style={{ fontSize: '24px', fontWeight: 'bold' }}>#{profile.user.id}</div>
-                        </div>
-                        <div style={{ background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '12px' }}>
-                            <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>Email</div>
-                            <div style={{ fontSize: '16px', fontWeight: '500' }}>{profile.user.email || 'N/A'}</div>
-                        </div>
-                        <div style={{ background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '12px' }}>
-                            <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>Member Since</div>
-                            <div style={{ fontSize: '16px', fontWeight: '500' }}>{new Date(profile.user.created_at).toLocaleDateString()}</div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {activeTab === 'wallets' && (
-                <div className="card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                        <h2 style={{ fontSize: '20px', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <Wallet size={20} />
-                            Linked Wallets
-                        </h2>
-                        <button className="btn btn-outline" onClick={handleLinkWallet} style={{ fontSize: '12px', padding: '8px 12px' }}>
-                            <Plus size={14} /> Link New Wallet
-                        </button>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {profile.linkedWallets.length === 0 && (
-                            <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>
-                                No wallets linked yet. Link a wallet to deposit and withdraw.
-                            </div>
-                        )}
-                        {profile.linkedWallets.map(wallet => (
-                            <div key={wallet.wallet_address} style={{
-                                background: 'rgba(0,0,0,0.2)',
-                                padding: '16px',
-                                borderRadius: '12px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                border: wallet.is_primary ? '1px solid var(--primary)' : '1px solid transparent',
-                                transition: 'all 0.2s'
-                            }}>
                                 <div>
-                                    <div style={{ fontWeight: 'bold', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                                        {wallet.wallet_address.slice(0, 6)}...{wallet.wallet_address.slice(-6)}
-                                        {wallet.is_primary && (
-                                            <span style={{
-                                                fontSize: '10px',
-                                                background: 'var(--primary)',
-                                                color: 'black',
-                                                padding: '2px 8px',
-                                                borderRadius: '12px',
-                                                fontWeight: 'bold'
-                                            }}>
-                                                PRIMARY
-                                            </span>
-                                        )}
+                                    <div style={{ fontFamily: 'monospace', fontSize: '14px' }}>
+                                        {wallet.address}
                                     </div>
-                                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                                        Added: {new Date(wallet.added_at).toLocaleDateString()}
-                                    </div>
-                                </div>
-                                <div style={{ display: 'flex', gap: '12px' }}>
-                                    {!wallet.is_primary && (
-                                        <>
-                                            <button
-                                                onClick={() => handleSetPrimary(wallet.wallet_address)}
-                                                className="btn btn-outline"
-                                                style={{ padding: '6px 12px', fontSize: '12px' }}
-                                                title="Set as Primary"
-                                            >
-                                                <Star size={14} style={{ marginRight: '6px' }} /> Set Primary
-                                            </button>
-                                            <button
-                                                onClick={() => handleUnlinkWallet(wallet.wallet_address)}
-                                                className="btn"
-                                                style={{ padding: '6px 12px', fontSize: '12px', background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d', border: '1px solid rgba(255, 77, 77, 0.2)' }}
-                                                title="Unlink"
-                                            >
-                                                <Trash2 size={14} style={{ marginRight: '6px' }} /> Unlink
-                                            </button>
-                                        </>
-                                    )}
-                                    {wallet.is_primary && (
-                                        <div style={{ color: 'var(--primary)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <Shield size={14} /> Active for Transactions
+                                    {wallet.isPrimary && (
+                                        <div style={{ fontSize: '12px', color: 'var(--primary)', marginTop: '4px' }}>
+                                            Primary Wallet
                                         </div>
                                     )}
                                 </div>
                             </div>
                         ))}
                     </div>
-                </div>
-            )}
+                ) : (
+                    <p style={{ color: 'var(--text-muted)' }}>No wallets connected yet</p>
+                )}
+            </div>
 
-            {activeTab === 'history' && (
-                <div className="card">
-                    <h2 style={{ fontSize: '20px', margin: '0 0 24px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <History size={20} />
-                        Transaction History
-                    </h2>
+            {/* Transaction History */}
+            <div style={{
+                background: '#1a1b23',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '16px',
+                padding: '24px'
+            }}>
+                <h2 style={{ fontSize: '20px', marginBottom: '20px' }}>Transaction History</h2>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {(!profile.recentTransactions || profile.recentTransactions.length === 0) && (
-                            <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>
-                                No transactions found.
+                {loading ? (
+                    <p style={{ color: 'var(--text-muted)' }}>Loading...</p>
+                ) : transactions.length > 0 ? (
+                    <>
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                                        <th style={{ padding: '12px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '14px' }}>Type</th>
+                                        <th style={{ padding: '12px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '14px' }}>Amount</th>
+                                        <th style={{ padding: '12px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '14px' }}>Status</th>
+                                        <th style={{ padding: '12px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '14px' }}>Date</th>
+                                        <th style={{ padding: '12px', textAlign: 'left', color: 'var(--text-muted)', fontSize: '14px' }}>Tx Hash</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {transactions.map((tx) => (
+                                        <tr key={tx.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <td style={{ padding: '12px' }}>
+                                                <span style={{ color: getTypeColor(tx.type), fontWeight: '600' }}>
+                                                    {tx.type}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '12px', fontFamily: 'monospace' }}>
+                                                {(tx.amount / 1e9).toFixed(4)} SOL
+                                            </td>
+                                            <td style={{ padding: '12px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    {getStatusIcon(tx.status)}
+                                                    {tx.status}
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '12px', fontSize: '14px', color: 'var(--text-muted)' }}>
+                                                {new Date(tx.createdAt).toLocaleString()}
+                                            </td>
+                                            <td style={{ padding: '12px', fontSize: '12px', fontFamily: 'monospace' }}>
+                                                {tx.txHash ? (
+                                                    <a
+                                                        href={`https://explorer.solana.com/tx/${tx.txHash}?cluster=devnet`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={{ color: 'var(--primary)', textDecoration: 'none' }}
+                                                    >
+                                                        {tx.txHash.slice(0, 8)}...
+                                                    </a>
+                                                ) : (
+                                                    <span style={{ color: 'var(--text-muted)' }}>-</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                            <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                                <button
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                    className="btn"
+                                    style={{
+                                        opacity: page === 1 ? 0.5 : 1,
+                                        cursor: page === 1 ? 'not-allowed' : 'pointer'
+                                    }}
+                                >
+                                    Previous
+                                </button>
+                                <div style={{ padding: '8px 16px', color: 'var(--text-muted)' }}>
+                                    Page {page} of {totalPages}
+                                </div>
+                                <button
+                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={page === totalPages}
+                                    className="btn"
+                                    style={{
+                                        opacity: page === totalPages ? 0.5 : 1,
+                                        cursor: page === totalPages ? 'not-allowed' : 'pointer'
+                                    }}
+                                >
+                                    Next
+                                </button>
                             </div>
                         )}
-                        {profile.recentTransactions?.map((tx, i) => (
-                            <div key={i} style={{
-                                background: 'rgba(0,0,0,0.2)',
-                                padding: '16px',
-                                borderRadius: '12px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between'
-                            }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                    <div style={{
-                                        width: '40px',
-                                        height: '40px',
-                                        borderRadius: '50%',
-                                        background: tx.type === 'DEPOSIT' || tx.type === 'WIN' ? 'rgba(0, 255, 0, 0.1)' : 'rgba(255, 0, 0, 0.1)',
-                                        color: tx.type === 'DEPOSIT' || tx.type === 'WIN' ? '#00ff00' : '#ff0000',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}>
-                                        {tx.type === 'DEPOSIT' && <ArrowDownLeft size={20} />}
-                                        {tx.type === 'WITHDRAWAL' && <ArrowUpRight size={20} />}
-                                        {tx.type === 'WIN' && <Trophy size={20} />}
-                                        {tx.type === 'BET' && <Gamepad2 size={20} />}
-                                        {tx.type === 'REFUND' && <History size={20} />}
-                                    </div>
-                                    <div>
-                                        <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{tx.type}</div>
-                                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                                            {new Date(tx.created_at).toLocaleString()}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div style={{ textAlign: 'right' }}>
-                                    <div style={{
-                                        fontWeight: 'bold',
-                                        fontSize: '16px',
-                                        color: tx.type === 'DEPOSIT' || tx.type === 'WIN' || tx.type === 'REFUND' ? '#00ff00' : '#ff0000'
-                                    }}>
-                                        {tx.type === 'DEPOSIT' || tx.type === 'WIN' || tx.type === 'REFUND' ? '+' : '-'}{(tx.amount / 1e9).toFixed(4)} SOL
-                                    </div>
-                                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                                        {tx.status}
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
+                    </>
+                ) : (
+                    <p style={{ color: 'var(--text-muted)' }}>No transactions yet</p>
+                )}
+            </div>
         </div>
     );
 };

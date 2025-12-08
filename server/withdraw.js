@@ -1,7 +1,7 @@
 const express = require('express');
 const { db } = require('./db');
 const { authenticateToken } = require('./auth');
-const { Connection, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction } = require('@solana/web3.js');
+const { Connection, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction, Keypair } = require('@solana/web3.js');
 const { getDerivedKeyPair, connection } = require('./wallet');
 
 const router = express.Router();
@@ -73,11 +73,12 @@ router.post('/admin/approve-withdrawal', authenticateAdmin, async (req, res) => 
 
         // Execute Solana Transaction
         // We send from the Main Hot Wallet (Index 0)
-        const keyPair = await getDerivedKeyPair(0);
+        const derivedKeyPair = await getDerivedKeyPair(0);
+        const keyPair = Keypair.fromSecretKey(derivedKeyPair.secretKey);
 
         const transaction = new Transaction().add(
             SystemProgram.transfer({
-                fromPubkey: keyPair.publicKey,
+                fromPubkey: new PublicKey(derivedKeyPair.publicKey),
                 toPubkey: new PublicKey(withdrawal.destination_address),
                 lamports: withdrawal.amount,
             })

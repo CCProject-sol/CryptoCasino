@@ -1,43 +1,33 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Gamepad2, Trophy, User, Wallet, LogOut, ChevronDown, LogIn } from 'lucide-react';
-import AuthModal from './AuthModal';
+import { Gamepad2, Trophy, User, LogOut, Wallet, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
 import { useUser } from '../context/UserContext';
+import AuthModal from './AuthModal';
+import WalletModal from './WalletModal';
+import DepositModal from './DepositModal';
+import WithdrawModal from './WithdrawModal';
 
 const Navbar = () => {
     const location = useLocation();
-    const { user, logout } = useUser();
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const { user, logout, loading, wallets } = useUser();
+    const [showAuthModal, setShowAuthModal] = useState(false);
+    const [showWalletModal, setShowWalletModal] = useState(false);
+    const [showDepositModal, setShowDepositModal] = useState(false);
+    const [showWithdrawModal, setShowWithdrawModal] = useState(false);
 
     const isActive = (path) => location.pathname === path;
 
     const navLinks = [
         { name: 'Games', path: '/games', icon: Gamepad2 },
         { name: 'Tournaments', path: '/tournaments', icon: Trophy },
-        { name: 'Profile', path: '/profile', icon: User },
     ];
-
-
-    const handleLogout = () => {
-        logout();
-        setIsDropdownOpen(false);
-        window.location.href = '/';
-    };
-
-
 
     return (
         <>
-            <AuthModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-            />
-
             <nav style={{
                 borderBottom: '1px solid rgba(255,255,255,0.05)',
                 backdropFilter: 'blur(10px)',
-                background: 'rgba(10, 10, 15, 0.8)',
+                background: 'rgba(10, 10, 15,0.8)',
                 position: 'sticky',
                 top: 0,
                 zIndex: 100
@@ -79,156 +69,152 @@ const Navbar = () => {
                                 {link.name}
                             </Link>
                         ))}
-                    </div>
 
-                    {/* Wallet / User */}
-                    {user ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                            <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Balance</div>
-                                <div style={{ fontWeight: 'bold', color: 'var(--primary)' }}>
-                                    {(user.balance / 1e9).toFixed(2)} SOL
-                                </div>
-                            </div>
+                        {/* Auth Section */}
+                        {!loading && (
+                            <>
+                                {user ? (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                        {/* Balance */}
+                                        <div style={{
+                                            background: 'rgba(255,255,255,0.05)',
+                                            padding: '8px 16px',
+                                            borderRadius: '8px',
+                                            fontSize: '14px',
+                                            fontWeight: '600'
+                                        }}>
+                                            {(user.balance / 1e9).toFixed(4)} SOL
+                                        </div>
 
-                            <div style={{ position: 'relative' }}>
-                                <button
-                                    className="btn btn-outline"
-                                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '6px 12px', borderRadius: '24px' }}
-                                >
-                                    <div style={{
-                                        width: '32px',
-                                        height: '32px',
-                                        borderRadius: '50%',
-                                        background: user.avatar_url ? `url(${user.avatar_url}) center/cover` : 'var(--primary)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        color: '#000',
-                                        border: '2px solid rgba(255,255,255,0.1)'
-                                    }}>
-                                        {!user.avatar_url && <User size={18} />}
-                                    </div>
-                                    <span style={{ fontWeight: '500' }}>
-                                        {user.nickname || user.email?.split('@')[0] || 'User'}
-                                    </span>
-                                    <ChevronDown size={14} style={{ opacity: 0.7 }} />
-                                </button>
+                                        {/* Wallet Button */}
+                                        <button
+                                            onClick={() => setShowWalletModal(true)}
+                                            className="btn"
+                                            style={{
+                                                background: wallets && wallets.length > 0 ? 'rgba(77, 255, 148, 0.1)' : 'rgba(255,255,255,0.05)',
+                                                border: wallets && wallets.length > 0 ? '1px solid rgba(77, 255, 148, 0.2)' : '1px solid rgba(255,255,255,0.1)',
+                                                padding: '8px 12px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px'
+                                            }}
+                                        >
+                                            <Wallet size={18} />
+                                            {wallets && wallets.length > 0 ? `${wallets[0].address.slice(0, 4)}...${wallets[0].address.slice(-4)}` : 'Connect Wallet'}
+                                        </button>
 
-                                {isDropdownOpen && (
-                                    <div style={{
-                                        position: 'absolute',
-                                        top: '100%',
-                                        right: 0,
-                                        marginTop: '8px',
-                                        background: '#1a1b23',
-                                        border: '1px solid rgba(255,255,255,0.1)',
-                                        borderRadius: '12px',
-                                        width: '220px',
-                                        padding: '8px',
-                                        boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
-                                        zIndex: 1000
-                                    }}>
+                                        {/* Deposit Button */}
+                                        <button
+                                            onClick={() => setShowDepositModal(true)}
+                                            className="btn"
+                                            style={{
+                                                background: 'rgba(77, 255, 148, 0.1)',
+                                                border: '1px solid rgba(77, 255, 148, 0.2)',
+                                                padding: '8px 12px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px'
+                                            }}
+                                        >
+                                            <ArrowDownCircle size={18} />
+                                            Deposit
+                                        </button>
+
+                                        {/* Withdraw Button */}
+                                        <button
+                                            onClick={() => setShowWithdrawModal(true)}
+                                            className="btn"
+                                            style={{
+                                                background: 'rgba(255, 193, 7, 0.1)',
+                                                border: '1px solid rgba(255, 193, 7, 0.2)',
+                                                padding: '8px 12px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px'
+                                            }}
+                                        >
+                                            <ArrowUpCircle size={18} />
+                                            Withdraw
+                                        </button>
+
+                                        {/* User Menu */}
                                         <Link
                                             to="/profile"
-                                            className="dropdown-item"
-                                            onClick={() => setIsDropdownOpen(false)}
+                                            className="btn"
                                             style={{
+                                                background: 'rgba(255,255,255,0.05)',
+                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                padding: '8px 12px',
                                                 display: 'flex',
                                                 alignItems: 'center',
-                                                gap: '10px',
-                                                padding: '12px',
-                                                color: 'white',
-                                                textDecoration: 'none',
-                                                borderRadius: '8px',
-                                                transition: 'background 0.2s'
+                                                gap: '8px'
                                             }}
-                                            onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                                            onMouseOut={e => e.currentTarget.style.background = 'transparent'}
                                         >
-                                            <User size={16} />
-                                            Profile
+                                            <User size={18} />
+                                            {user.nickname || user.email}
                                         </Link>
 
-                                        <Link
-                                            to="/profile?tab=wallets"
-                                            className="dropdown-item"
-                                            onClick={() => setIsDropdownOpen(false)}
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '10px',
-                                                padding: '12px',
-                                                color: 'white',
-                                                textDecoration: 'none',
-                                                borderRadius: '8px',
-                                                transition: 'background 0.2s'
-                                            }}
-                                            onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                                            onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-                                        >
-                                            <Wallet size={16} />
-                                            Wallet Manager
-                                        </Link>
-
-                                        <Link
-                                            to="/profile?tab=history"
-                                            className="dropdown-item"
-                                            onClick={() => setIsDropdownOpen(false)}
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '10px',
-                                                padding: '12px',
-                                                color: 'white',
-                                                textDecoration: 'none',
-                                                borderRadius: '8px',
-                                                transition: 'background 0.2s'
-                                            }}
-                                            onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                                            onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-                                        >
-                                            <Trophy size={16} />
-                                            History
-                                        </Link>
-
-                                        <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '8px 0' }}></div>
-
+                                        {/* Logout */}
                                         <button
-                                            onClick={handleLogout}
+                                            onClick={logout}
+                                            className="btn"
                                             style={{
+                                                background: 'rgba(255,77,77,0.1)',
+                                                border: '1px solid rgba(255,77,77,0.2)',
+                                                padding: '8px 12px',
                                                 display: 'flex',
                                                 alignItems: 'center',
-                                                gap: '10px',
-                                                padding: '12px',
-                                                color: '#ff4d4d',
-                                                background: 'none',
-                                                border: 'none',
-                                                width: '100%',
-                                                cursor: 'pointer',
-                                                borderRadius: '8px',
-                                                textAlign: 'left',
-                                                fontSize: '14px'
+                                                gap: '8px'
                                             }}
-                                            onMouseOver={e => e.currentTarget.style.background = 'rgba(255,77,77,0.1)'}
-                                            onMouseOut={e => e.currentTarget.style.background = 'transparent'}
                                         >
-                                            <LogOut size={16} />
-                                            Log Out
+                                            <LogOut size={18} />
+                                            Logout
                                         </button>
                                     </div>
+                                ) : (
+                                    <button
+                                        onClick={() => setShowAuthModal(true)}
+                                        className="btn btn-primary"
+                                        style={{
+                                            padding: '10px 20px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px'
+                                        }}
+                                    >
+                                        <User size={18} />
+                                        Login / Register
+                                    </button>
                                 )}
-                            </div>
-                        </div>
-                    ) : (
-                        <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
-                            <LogIn size={18} />
-                            Sign In
-                        </button>
-                    )}
+                            </>
+                        )}
+                    </div>
                 </div>
             </nav>
+
+            {/* Auth Modal */}
+            <AuthModal
+                isOpen={showAuthModal}
+                onClose={() => setShowAuthModal(false)}
+            />
+
+            {/* Wallet Modal */}
+            <WalletModal
+                isOpen={showWalletModal}
+                onClose={() => setShowWalletModal(false)}
+            />
+
+            {/* Deposit Modal */}
+            <DepositModal
+                isOpen={showDepositModal}
+                onClose={() => setShowDepositModal(false)}
+            />
+
+            {/* Withdraw Modal */}
+            <WithdrawModal
+                isOpen={showWithdrawModal}
+                onClose={() => setShowWithdrawModal(false)}
+            />
         </>
     );
 };
