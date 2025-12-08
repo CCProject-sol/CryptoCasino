@@ -33,9 +33,13 @@ export const UserProvider = ({ children }) => {
     // WebSocket connection with userId
     useEffect(() => {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        // In production, use current host. In development, use localhost:3000
+        const wsHost = import.meta.env.MODE === 'production'
+            ? window.location.host
+            : 'localhost:3000';
         const wsUrl = user
-            ? `${protocol}//${window.location.hostname}:3000?userId=${user.id}`
-            : `${protocol}//${window.location.hostname}:3000`;
+            ? `${protocol}//${wsHost}?userId=${user.id}`
+            : `${protocol}//${wsHost}`;
 
         const socket = new WebSocket(wsUrl);
 

@@ -1,4 +1,6 @@
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+// Use environment variable if available, otherwise use current origin in production, fallback to localhost in dev
+export const API_URL = import.meta.env.VITE_API_URL ||
+    (import.meta.env.MODE === 'production' ? window.location.origin : 'http://localhost:3000');
 
 export const api = {
     async request(endpoint, method = 'GET', body = null, token = null) {
