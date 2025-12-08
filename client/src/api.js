@@ -1,6 +1,11 @@
-// Use environment variable if available, otherwise use current origin in production, fallback to localhost in dev
+// Detect if we're in production by checking if we're NOT on localhost
+// This is more reliable than import.meta.env.MODE which varies by build
+const isLocalhost = window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname === '';
+
 export const API_URL = import.meta.env.VITE_API_URL ||
-    (import.meta.env.MODE === 'production' ? window.location.origin : 'http://localhost:3000');
+    (isLocalhost ? 'http://localhost:3000' : window.location.origin);
 
 export const api = {
     async request(endpoint, method = 'GET', body = null, token = null) {
