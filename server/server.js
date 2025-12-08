@@ -62,6 +62,21 @@ const profileRouter = require('./routes/profile');
 app.use('/api/profile', profileRouter);
 
 
+// Serve static files from client build in production
+if (process.env.NODE_ENV === 'production') {
+    const clientBuildPath = path.join(__dirname, '../client/dist');
+    app.use(express.static(clientBuildPath));
+
+    // Handle client-side routing - send all non-API requests to index.html
+    app.get('*', (req, res, next) => {
+        // Skip API routes
+        if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+            return next();
+        }
+        res.sendFile(path.join(clientBuildPath, 'index.html'));
+    });
+}
+
 // 404 Handler
 app.use((req, res, next) => {
     console.log(`[404] Not Found: ${req.method} ${req.url}`);
