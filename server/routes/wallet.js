@@ -17,6 +17,9 @@ router.post('/connect', authenticateToken, async (req, res) => {
     }
 
     try {
+        // Dynamic import for bs58 (handles ES module in CommonJS)
+        const bs58 = (await import('bs58')).default;
+
         // Verify signature
         const messageBytes = new TextEncoder().encode(message);
         const signatureBytes = bs58.decode(signature);
