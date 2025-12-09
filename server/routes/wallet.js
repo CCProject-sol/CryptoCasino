@@ -1,5 +1,6 @@
 const express = require('express');
-const bs58 = require('bs58');
+const bs58Module = require('bs58');
+const bs58 = bs58Module.default || bs58Module; // Handle both CommonJS and ES6 module formats
 const nacl = require('tweetnacl');
 const { db } = require('../db');
 const { authenticateToken } = require('../auth');

@@ -138,4 +138,5 @@ export const UserProvider = ({ children }) => {
     );
 };
 
+// Export hook separately to maintain Fast Refresh compatibility
 export const useUser = () => useContext(UserContext);
