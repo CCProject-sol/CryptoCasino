@@ -114,15 +114,21 @@ router.post('/disconnect', authenticateToken, (req, res) => {
             return res.status(404).json({ error: 'Wallet not found' });
         }
 
-        // Don't allow removing primary wallet if it's the only one
+        // Check wallet count
         const walletCount = db.prepare(
             'SELECT COUNT(*) as count FROM linked_wallets WHERE user_id = ?'
         ).get(userId);
 
-        if (wallet.is_primary === 1 && walletCount.count > 1) {
-            // Promote another wallet to primary before removing
+        // Don't allow removing the only wallet
+        if (walletCount.count === 1) {
+            return res.status(400).json({ error: 'Cannot remove your only wallet' });
+        }
+
+        // If removing primary wallet, promote another one
+        if (wallet.is_primary === 1) {
+            // Get the oldest non-primary wallet
             const nextWallet = db.prepare(
-                'SELECT id FROM linked_wallets WHERE user_id = ? AND wallet_address != ? LIMIT 1'
+                'SELECT id FROM linked_wallets WHERE user_id = ? AND wallet_address != ? ORDER BY added_at ASC LIMIT 1'
             ).get(userId, address);
 
             if (nextWallet) {
@@ -137,6 +143,37 @@ router.post('/disconnect', authenticateToken, (req, res) => {
     } catch (err) {
         console.error('Disconnect wallet error:', err);
         res.status(500).json({ error: 'Failed to disconnect wallet', details: err.message });
+    }
+});
+
+// Set wallet as primary
+router.patch('/:address/primary', authenticateToken, (req, res) => {
+    const { address } = req.params;
+    const userId = req.user.id;
+
+    try {
+        // Check if wallet belongs to user
+        const wallet = db.prepare(
+            'SELECT id, is_primary FROM linked_wallets WHERE user_id = ? AND wallet_address = ?'
+        ).get(userId, address);
+
+        if (!wallet) {
+            return res.status(404).json({ error: 'Wallet not found' });
+        }
+
+        // Already primary
+        if (wallet.is_primary === 1) {
+            return res.json({ success: true, message: 'Wallet is already primary' });
+        }
+
+        // Update in a transaction
+        db.prepare('UPDATE linked_wallets SET is_primary = 0 WHERE user_id = ?').run(userId);
+        db.prepare('UPDATE linked_wallets SET is_primary = 1 WHERE id = ?').run(wallet.id);
+
+        res.json({ success: true, message: 'Primary wallet updated successfully' });
+    } catch (err) {
+        console.error('Set primary wallet error:', err);
+        res.status(500).json({ error: 'Failed to set primary wallet', details: err.message });
     }
 });
 

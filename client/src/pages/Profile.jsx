@@ -1,10 +1,216 @@
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../context/UserContext';
 import { api } from '../api';
-import { User, Wallet, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { User, Wallet, Clock, CheckCircle, XCircle, AlertCircle, Star, Trash2 } from 'lucide-react';
+
+// Wallet Card Component
+const WalletCard = ({ wallet, onSetPrimary, onDisconnect }) => {
+    const [showConfirm, setShowConfirm] = useState(false);
+
+    const truncateAddress = (addr) => {
+        if (!addr) return '';
+        return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
+    };
+
+    return (
+        <>
+            <div style={{
+                padding: '20px',
+                background: wallet.isPrimary
+                    ? 'linear-gradient(135deg, rgba(77, 255, 148, 0.1), rgba(77, 255, 148, 0.05))'
+                    : 'rgba(255,255,255,0.03)',
+                border: wallet.isPrimary
+                    ? '1px solid rgba(77, 255, 148, 0.3)'
+                    : '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '12px',
+                position: 'relative',
+                transition: 'all 0.3s ease',
+                cursor: 'default'
+            }}
+                onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.2)';
+                }}
+                onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                }}
+            >
+                {wallet.isPrimary && (
+                    <div style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontSize: '12px',
+                        color: '#4dff94',
+                        fontWeight: '600',
+                        background: 'rgba(77, 255, 148, 0.1)',
+                        padding: '4px 8px',
+                        borderRadius: '6px'
+                    }}>
+                        <Star size={14} fill="#4dff94" />
+                        PRIMARY
+                    </div>
+                )}
+
+                <div style={{ marginBottom: '16px', marginTop: wallet.isPrimary ? '20px' : '0' }}>
+                    <div style={{
+                        fontSize: '12px',
+                        color: 'var(--text-muted)',
+                        marginBottom: '4px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px'
+                    }}>
+                        Wallet Address
+                    </div>
+                    <div style={{
+                        fontFamily: 'monospace',
+                        fontSize: '16px',
+                        fontWeight: '600',
+                        color: wallet.isPrimary ? '#4dff94' : 'white'
+                    }}>
+                        {truncateAddress(wallet.address)}
+                    </div>
+                    <div style={{
+                        fontSize: '11px',
+                        color: 'var(--text-muted)',
+                        marginTop: '2px',
+                        fontFamily: 'monospace'
+                    }}>
+                        {wallet.address}
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                    {!wallet.isPrimary && (
+                        <button
+                            onClick={onSetPrimary}
+                            style={{
+                                flex: 1,
+                                padding: '10px',
+                                background: 'rgba(77, 255, 148, 0.1)',
+                                border: '1px solid rgba(77, 255, 148, 0.3)',
+                                borderRadius: '8px',
+                                color: '#4dff94',
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                                transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'rgba(77, 255, 148, 0.2)';
+                                e.currentTarget.style.transform = 'scale(1.02)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'rgba(77, 255, 148, 0.1)';
+                                e.currentTarget.style.transform = 'scale(1)';
+                            }}
+                        >
+                            <Star size={16} />
+                            Set as Primary
+                        </button>
+                    )}
+                    <button
+                        onClick={() => setShowConfirm(true)}
+                        style={{
+                            flex: wallet.isPrimary ? 1 : 0,
+                            padding: '10px',
+                            background: 'rgba(255, 77, 77, 0.1)',
+                            border: '1px solid rgba(255, 77, 77, 0.3)',
+                            borderRadius: '8px',
+                            color: '#ff4d4d',
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            transition: 'all 0.2s ease',
+                            minWidth: wallet.isPrimary ? 'auto' : '44px'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(255, 77, 77, 0.2)';
+                            e.currentTarget.style.transform = 'scale(1.02)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(255, 77, 77, 0.1)';
+                            e.currentTarget.style.transform = 'scale(1)';
+                        }}
+                    >
+                        <Trash2 size={16} />
+                        {wallet.isPrimary && 'Disconnect'}
+                    </button>
+                </div>
+            </div>
+
+            {/* Confirmation Dialog */}
+            {showConfirm && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0, 0, 0, 0.7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000
+                }}>
+                    <div style={{
+                        background: '#1a1b23',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '16px',
+                        padding: '24px',
+                        maxWidth: '400px',
+                        width: '90%'
+                    }}>
+                        <h3 style={{ marginBottom: '16px', fontSize: '18px' }}>Confirm Disconnect</h3>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: '24px', lineHeight: '1.5' }}>
+                            Are you sure you want to disconnect this wallet?
+                            {wallet.isPrimary && ' Another wallet will automatically be set as primary.'}
+                        </p>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button
+                                onClick={() => setShowConfirm(false)}
+                                className="btn"
+                                style={{ flex: 1 }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowConfirm(false);
+                                    onDisconnect();
+                                }}
+                                className="btn"
+                                style={{
+                                    flex: 1,
+                                    background: 'rgba(255, 77, 77, 0.2)',
+                                    border: '1px solid rgba(255, 77, 77, 0.4)',
+                                    color: '#ff4d4d'
+                                }}
+                            >
+                                Disconnect
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
+    );
+};
 
 const Profile = () => {
-    const { user, token, wallets } = useUser();
+    const { user, token, wallets, setPrimaryWallet, removeWallet, refreshWallets } = useUser();
     const [nickname, setNickname] = useState('');
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -12,13 +218,39 @@ const Profile = () => {
     const [message, setMessage] = useState('');
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [toast, setToast] = useState(null);
+
+    // Toast helper
+    const showToast = (msg, type = 'success') => {
+        setToast({ message: msg, type });
+        setTimeout(() => setToast(null), 3000);
+    };
 
     useEffect(() => {
         if (user) {
             setNickname(user.nickname || '');
             loadTransactions();
+            refreshWallets();
         }
     }, [user, page]);
+
+    const handleSetPrimary = async (address) => {
+        try {
+            await setPrimaryWallet(address);
+            showToast('Primary wallet updated!', 'success');
+        } catch (err) {
+            showToast(err.message || 'Failed to set primary wallet', 'error');
+        }
+    };
+
+    const handleDisconnect = async (address) => {
+        try {
+            await removeWallet(address);
+            showToast('Wallet disconnected successfully', 'success');
+        } catch (err) {
+            showToast(err.message || 'Failed to disconnect wallet', 'error');
+        }
+    };
 
     const loadTransactions = async () => {
         try {
@@ -198,31 +430,14 @@ const Profile = () => {
                 </h2>
 
                 {wallets && wallets.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {wallets.map((wallet, index) => (
-                            <div
-                                key={index}
-                                style={{
-                                    padding: '16px',
-                                    background: 'rgba(255,255,255,0.05)',
-                                    border: '1px solid rgba(255,255,255,0.1)',
-                                    borderRadius: '8px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between'
-                                }}
-                            >
-                                <div>
-                                    <div style={{ fontFamily: 'monospace', fontSize: '14px' }}>
-                                        {wallet.address}
-                                    </div>
-                                    {wallet.isPrimary && (
-                                        <div style={{ fontSize: '12px', color: 'var(--primary)', marginTop: '4px' }}>
-                                            Primary Wallet
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+                        {wallets.map((wallet) => (
+                            <WalletCard
+                                key={wallet.address}
+                                wallet={wallet}
+                                onSetPrimary={() => handleSetPrimary(wallet.address)}
+                                onDisconnect={() => handleDisconnect(wallet.address)}
+                            />
                         ))}
                     </div>
                 ) : (
@@ -329,6 +544,32 @@ const Profile = () => {
                     <p style={{ color: 'var(--text-muted)' }}>No transactions yet</p>
                 )}
             </div>
+
+            {/* Toast Notification */}
+            {toast && (
+                <div style={{
+                    position: 'fixed',
+                    top: '24px',
+                    right: '24px',
+                    background: toast.type === 'success'
+                        ? 'linear-gradient(135deg, rgba(77, 255, 148, 0.2), rgba(77, 255, 148, 0.1))'
+                        : 'linear-gradient(135deg, rgba(255, 77, 77, 0.2), rgba(255, 77, 77, 0.1))',
+                    border: toast.type === 'success'
+                        ? '1px solid rgba(77, 255, 148, 0.4)'
+                        : '1px solid rgba(255, 77, 77, 0.4)',
+                    color: toast.type === 'success' ? '#4dff94' : '#ff4d4d',
+                    padding: '16px 24px',
+                    borderRadius: '12px',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                    zIndex: 10000,
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    animation: 'slideIn 0.3s ease',
+                    maxWidth: '400px'
+                }}>
+                    {toast.message}
+                </div>
+            )}
         </div>
     );
 };

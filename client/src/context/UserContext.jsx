@@ -120,6 +120,46 @@ export const UserProvider = ({ children }) => {
         return response;
     };
 
+    // Wallet management helpers
+    const refreshWallets = async () => {
+        try {
+            const response = await api.request('/api/wallet/list', 'GET', null, token);
+            setWallets(response.wallets || []);
+            return response.wallets;
+        } catch (err) {
+            console.error('Failed to refresh wallets:', err);
+            throw err;
+        }
+    };
+
+    const setPrimaryWallet = async (address) => {
+        try {
+            await api.request(`/api/wallet/${address}/primary`, 'PATCH', null, token);
+            await refreshWallets();
+            // Also refresh user data to get updated primary wallet
+            const userResponse = await api.request('/api/auth/me', 'GET', null, token);
+            setUser(userResponse.user);
+            setWallets(userResponse.user.wallets || []);
+        } catch (err) {
+            console.error('Failed to set primary wallet:', err);
+            throw err;
+        }
+    };
+
+    const removeWallet = async (address) => {
+        try {
+            await api.request('/api/wallet/disconnect', 'POST', { address }, token);
+            await refreshWallets();
+            // Also refresh user data
+            const userResponse = await api.request('/api/auth/me', 'GET', null, token);
+            setUser(userResponse.user);
+            setWallets(userResponse.user.wallets || []);
+        } catch (err) {
+            console.error('Failed to remove wallet:', err);
+            throw err;
+        }
+    };
+
     return (
         <UserContext.Provider value={{
             user,
@@ -131,7 +171,10 @@ export const UserProvider = ({ children }) => {
             registerEmail,
             logout,
             connectWallet,
-            disconnectWallet
+            disconnectWallet,
+            refreshWallets,
+            setPrimaryWallet,
+            removeWallet
         }}>
             {children}
         </UserContext.Provider>
