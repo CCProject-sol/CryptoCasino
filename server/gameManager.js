@@ -73,26 +73,47 @@ class GameManager {
             const winAmountLamports = game.betLamports * 2; // Simple 2x payout for now (no house edge yet)
 
             if (winner) {
-                // Update DB
+                // Update DB for the winner
                 const winTx = this.db.transaction(() => {
                     this.db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(winAmountLamports, winner.user.id);
                     this.db.prepare('INSERT INTO transactions (user_id, type, amount, status) VALUES (?, ?, ?, ?)').run(winner.user.id, 'WIN', winAmountLamports, 'COMPLETED');
                 });
                 winTx();
                 this.broadcastUserUpdate(winner.user.id);
+
+                const resultData = {
+                    type: 'GAME_RESULT',
+                    gameType: 'coinflip',
+                    outcome: outcome,
+                    winAmount: parseFloat(game.betAmount) * 2,
+                    winnerId: winner.user.id
+                };
+
+                winner.send(JSON.stringify({ ...resultData, result: 'win' }));
+                if (loser) loser.send(JSON.stringify({ ...resultData, result: 'lose' }));
+
+            } else {
+                // No winner, it's a draw. Refund bets.
+                const refundTx = this.db.transaction(() => {
+                    game.players.forEach(p => {
+                        this.db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(game.betLamports, p.user.id);
+                        this.db.prepare('INSERT INTO transactions (user_id, type, amount, status) VALUES (?, ?, ?, ?)').run(p.user.id, 'REFUND', game.betLamports, 'COMPLETED');
+                    });
+                });
+                refundTx();
+                game.players.forEach(p => this.broadcastUserUpdate(p.user.id));
+
+                const resultData = {
+                    type: 'GAME_RESULT',
+                    gameType: 'coinflip',
+                    outcome: outcome,
+                    winAmount: 0,
+                    winnerId: null,
+                    result: 'draw'
+                };
+
+                game.players.forEach(p => p.send(JSON.stringify(resultData)));
             }
-
-            const resultData = {
-                type: 'GAME_RESULT',
-                gameType: 'coinflip',
-                outcome: outcome,
-                winAmount: parseFloat(game.betAmount) * 2,
-                winnerId: winner ? winner.user.id : null
-            };
-
-            // Send results
-            if (winner) winner.send(JSON.stringify({ ...resultData, result: 'win' }));
-            if (loser) loser.send(JSON.stringify({ ...resultData, result: 'lose' }));
 
             this.activeGames.delete(game.id);
         }, 2000);
