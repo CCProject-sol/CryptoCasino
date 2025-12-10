@@ -63,6 +63,10 @@ app.use('/api/withdraw', withdrawRouter);
 const profileRouter = require('./routes/profile');
 app.use('/api/profile', profileRouter);
 
+const adminRouter = require('./routes/admin');
+app.use('/api/admin', adminRouter);
+
+
 
 // Serve static files from client build in production
 if (process.env.NODE_ENV === 'production') {

@@ -391,6 +391,26 @@ const Profile = () => {
                         </div>
                     </div>
 
+                    <div style={{ marginBottom: '16px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>
+                            Test Balance (for testing)
+                        </label>
+                        <div style={{
+                            padding: '12px',
+                            background: 'rgba(255, 191, 0, 0.1)',
+                            border: '1px solid rgba(255, 191, 0, 0.2)',
+                            borderRadius: '8px',
+                            fontSize: '18px',
+                            fontWeight: '600',
+                            color: '#ffbf00'
+                        }}>
+                            {((user.testBalance || 0) / 1e9).toFixed(4)} SOL
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                            Use admin endpoint to set test balance
+                        </div>
+                    </div>
+
                     {message && (
                         <div style={{
                             padding: '12px',

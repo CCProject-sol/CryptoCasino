@@ -43,7 +43,7 @@ router.post('/register', async (req, res) => {
 
         // Get user data
         const user = db.prepare(
-            'SELECT id, email, nickname, balance, avatar_url FROM users WHERE id = ?'
+            'SELECT id, email, nickname, balance, avatar_url, test_balance FROM users WHERE id = ?'
         ).get(userId);
 
         res.json({
@@ -54,7 +54,8 @@ router.post('/register', async (req, res) => {
                 email: user.email,
                 nickname: user.nickname,
                 balance: user.balance,
-                avatarUrl: user.avatar_url
+                avatarUrl: user.avatar_url,
+                testBalance: user.test_balance || 0
             }
         });
     } catch (err) {
@@ -98,7 +99,8 @@ router.post('/login', async (req, res) => {
                 email: user.email,
                 nickname: user.nickname,
                 balance: user.balance,
-                avatarUrl: user.avatar_url
+                avatarUrl: user.avatar_url,
+                testBalance: user.test_balance || 0
             }
         });
     } catch (err) {
@@ -111,7 +113,7 @@ router.post('/login', async (req, res) => {
 router.get('/me', require('../auth').authenticateToken, (req, res) => {
     try {
         const user = db.prepare(
-            'SELECT id, email, nickname, balance, avatar_url FROM users WHERE id = ?'
+            'SELECT id, email, nickname, balance, avatar_url, test_balance FROM users WHERE id = ?'
         ).get(req.user.id);
 
         if (!user) {
@@ -131,6 +133,7 @@ router.get('/me', require('../auth').authenticateToken, (req, res) => {
                 nickname: user.nickname,
                 balance: user.balance,
                 avatarUrl: user.avatar_url,
+                testBalance: user.test_balance || 0,
                 wallets: wallets.map(w => ({
                     address: w.wallet_address,
                     isPrimary: w.is_primary === 1,

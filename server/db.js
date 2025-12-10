@@ -82,6 +82,19 @@ const init = () => {
             }
         }
 
+        if (!columns.includes('test_balance')) {
+            console.log('[DB] Migrating: Adding test_balance column to users...');
+            try {
+                db.prepare('ALTER TABLE users ADD COLUMN test_balance INTEGER DEFAULT 0').run();
+            } catch (alterErr) {
+                if (alterErr.message.includes('duplicate column name')) {
+                    console.log('[DB] test_balance column already exists (race condition handled).');
+                } else {
+                    throw alterErr;
+                }
+            }
+        }
+
         // Migrate existing users to linked_wallets
         const existingUsers = db.prepare('SELECT id, wallet_address FROM users').all();
         for (const user of existingUsers) {
