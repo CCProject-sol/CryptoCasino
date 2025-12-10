@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { db } = require('../db');
 const { generateToken } = require('../auth');
+const { getModeInfo } = require('../utils/modeDetector');
 
 const router = express.Router();
 
@@ -56,7 +57,8 @@ router.post('/register', async (req, res) => {
                 balance: user.balance,
                 avatarUrl: user.avatar_url,
                 testBalance: user.test_balance || 0
-            }
+            },
+            systemMode: getModeInfo()
         });
     } catch (err) {
         console.error('Registration error:', err);
@@ -101,7 +103,8 @@ router.post('/login', async (req, res) => {
                 balance: user.balance,
                 avatarUrl: user.avatar_url,
                 testBalance: user.test_balance || 0
-            }
+            },
+            systemMode: getModeInfo()
         });
     } catch (err) {
         console.error('Login error:', err);
@@ -139,7 +142,8 @@ router.get('/me', require('../auth').authenticateToken, (req, res) => {
                     isPrimary: w.is_primary === 1,
                     addedAt: w.added_at
                 }))
-            }
+            },
+            systemMode: getModeInfo()
         });
     } catch (err) {
         console.error('Get user error:', err);

@@ -25,11 +25,16 @@ class MatchmakingManager {
         }
 
         const userId = ws.user.id;
+        const { isTestModeEnabled } = require('./utils/modeDetector');
 
-        console.log(`Player ${userId} looking for match: ${gameType} ${betAmount} ${side || ''} ${useTestBalance ? '(TEST MODE)' : ''}`);
+        // Auto-enable test balance if TEST_MODE env var is set
+        // Manual useTestBalance flag still supported for backward compatibility
+        const shouldUseTestBalance = useTestBalance || isTestModeEnabled();
+
+        console.log(`Player ${userId} looking for match: ${gameType} ${betAmount} ${side || ''} ${shouldUseTestBalance ? '(TEST MODE)' : '(PRODUCTION)'}`);
 
         // TEST MODE: Instant single-player game
-        if (useTestBalance) {
+        if (shouldUseTestBalance) {
             console.log(`Creating instant test mode game for player ${userId}`);
             ws.send(JSON.stringify({ type: 'SEARCHING_MATCH' }));
 

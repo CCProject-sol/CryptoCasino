@@ -16,9 +16,13 @@ const db = require('./db');
 const GameManager = require('./gameManager');
 const MatchmakingManager = require('./matchmaking');
 const { startDepositListener } = require('./wallet');
+const { logModeStatus } = require('./utils/modeDetector');
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Log current mode on startup
+logModeStatus();
 
 // Middleware
 app.use(cors({

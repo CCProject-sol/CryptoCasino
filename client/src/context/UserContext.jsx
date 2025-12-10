@@ -9,6 +9,7 @@ export const UserProvider = ({ children }) => {
     const [ws, setWs] = useState(null);
     const [loading, setLoading] = useState(true);
     const [wallets, setWallets] = useState([]);
+    const [systemMode, setSystemMode] = useState(null); // Test/Production mode info
 
     // Initialize user from token on mount
     useEffect(() => {
@@ -18,6 +19,7 @@ export const UserProvider = ({ children }) => {
                     const response = await api.request('/api/auth/me', 'GET', null, token);
                     setUser(response.user);
                     setWallets(response.user.wallets || []);
+                    setSystemMode(response.systemMode || null);
                 } catch (err) {
                     console.error('Failed to load user:', err);
                     // Token might be invalid, clear it
@@ -82,6 +84,7 @@ export const UserProvider = ({ children }) => {
         localStorage.setItem('token', response.token);
         setUser(response.user);
         setWallets(response.user.wallets || []);
+        setSystemMode(response.systemMode || null);
         return response;
     };
 
@@ -91,6 +94,7 @@ export const UserProvider = ({ children }) => {
         localStorage.setItem('token', response.token);
         setUser(response.user);
         setWallets(response.user.wallets || []);
+        setSystemMode(response.systemMode || null);
         return response;
     };
 
@@ -167,6 +171,7 @@ export const UserProvider = ({ children }) => {
             ws,
             loading,
             wallets,
+            systemMode, // Expose system mode
             loginEmail,
             registerEmail,
             logout,
