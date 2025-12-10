@@ -67,7 +67,7 @@ class MatchmakingManager {
 
             // Check if opponent is still connected
             if (opponentWs.readyState !== opponentWs.OPEN) {
-                return this.handleCoinFlipMatch(ws, userId, betAmount, side); // Retry
+                return this.matchCoinFlip(ws, betAmount, side); // Retry
             }
 
             // Match found!
@@ -139,7 +139,8 @@ class MatchmakingManager {
         }
     }
 
-    handleHighCardMatch(ws, userId, betAmount) {
+    matchHighCard(ws, betAmount) {
+        const userId = this.getUserId(ws);
         // Similar logic for High Card...
         // For MVP, let's stick to Coin Flip first as requested in detail.
         // But we should at least queue them.
