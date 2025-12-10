@@ -18,23 +18,41 @@ class MatchmakingManager {
         return ws.user ? ws.user.id : null;
     }
 
-    findMatch(ws, gameType, betAmount, side = null) {
-        const userId = this.getUserId(ws);
-        if (!userId) {
+    findMatch(ws, gameType, betAmount, side = null, useTestBalance = false) {
+        if (!ws.user || !ws.user.id) {
             ws.send(JSON.stringify({ type: 'ERROR', message: 'Not authenticated' }));
             return;
         }
 
-        console.log(`Player ${userId} looking for match: ${gameType} ${betAmount} ${side || ''}`);
+        const userId = ws.user.id;
 
+        console.log(`Player ${userId} looking for match: ${gameType} ${betAmount} ${side || ''} ${useTestBalance ? '(TEST MODE)' : ''}`);
+
+        // TEST MODE: Instant single-player game
+        if (useTestBalance) {
+            console.log(`Creating instant test mode game for player ${userId}`);
+            ws.send(JSON.stringify({ type: 'SEARCHING_MATCH' }));
+
+            // Immediate match in test mode
+            const metadata = {};
+            if (gameType === 'coinflip') {
+                metadata[userId] = side; // Store player's choice
+            }
+
+            this.gameManager.createGame(gameType, [ws], betAmount, { ...metadata, useTestBalance: true });
+            return;
+        }
+
+        // PRODUCTION MODE: PVP matchmaking
         if (gameType === 'coinflip') {
-            return this.handleCoinFlipMatch(ws, userId, betAmount, side);
+            this.matchCoinFlip(ws, betAmount, side);
         } else if (gameType === 'highcard') {
-            return this.handleHighCardMatch(ws, userId, betAmount);
+            this.matchHighCard(ws, betAmount);
         }
     }
 
-    handleCoinFlipMatch(ws, userId, betAmount, side) {
+    matchCoinFlip(ws, betAmount, side) {
+        const userId = this.getUserId(ws); // Re-get userId for this method's scope
         if (!this.queues.coinflip[betAmount]) {
             this.queues.coinflip[betAmount] = { heads: [], tails: [] };
         }

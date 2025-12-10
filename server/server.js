@@ -138,7 +138,7 @@ wss.on('connection', (ws, req) => {
             console.log(`Received from ${ws.id}:`, data);
 
             if (data.type === 'FIND_MATCH') {
-                matchmakingManager.findMatch(ws, data.gameType, data.betAmount, data.side);
+                matchmakingManager.findMatch(ws, data.gameType, data.betAmount, data.side, data.useTestBalance);
             } else if (data.type === 'CANCEL_MATCH') {
                 matchmakingManager.removeFromQueue(ws);
                 ws.send(JSON.stringify({ type: 'MATCH_CANCELLED' }));
