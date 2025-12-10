@@ -293,7 +293,8 @@ const CoinFlip = () => {
                     </div>
                 )}
             </div>
-            );
+        </>
+    );
 };
 
-            export default CoinFlip;
+export default CoinFlip;
